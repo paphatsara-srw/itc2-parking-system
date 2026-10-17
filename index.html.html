@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parking Management & Booking System (ITC2)</title>
+<meta name="theme-color" content="#14213D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+  tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Noto Sans Thai"', 'Sarabun', 'Tahoma', 'system-ui', 'sans-serif'] } } } };
+</script>
+<style>
+  :root{
+    --bg:#EEF3FB; --card:#fff; --fg:#142039; --muted:#5f6c85; --bd:#E1E8F4; --soft:#F2F6FC; --hover:#E8EFFA; --glass:rgba(255,255,255,.78);
+    --ink:#0F2A5C; --perm:#2453C7; --permsoft:#E3EBFF; --permfg:#1E3FA0;
+    --amber:#F5B301; --ambersoft:#FFF1C9; --amberfg:#7A5600;
+    --green:#16996A; --greensoft:#D8F5E7; --greenfg:#0B6B49;
+    --warn:#E8710A; --warnsoft:#FFE7D1; --warnfg:#A94E00;
+    --red:#D13B32; --redsoft:#FDE1DF; --redfg:#A8261E;
+    --grad-brand:linear-gradient(135deg,#0B1F4B 0%,#173C94 55%,#2563EB 100%);
+    --grad-accent:linear-gradient(135deg,#FFC93C,#FF8A3D);
+    --grad-pri:linear-gradient(135deg,#173C94,#2563EB);
+    --bd-grad:linear-gradient(135deg,rgba(37,99,235,.35),rgba(22,153,106,.28) 55%,rgba(245,179,1,.38));
+    --shadow:0 1px 2px rgba(15,42,92,.06),0 8px 24px rgba(15,42,92,.08); --shadow-hover:0 14px 34px rgba(37,99,235,.20);
+    --pri:#173C94; --prifg:#fff; color-scheme:light;
+  }
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+    --bg:#0A1226; --card:#131D36; --fg:#E8EDF8; --muted:#9BA9C4; --bd:#25345A; --soft:#1A2644; --hover:#1F2D50; --glass:rgba(19,29,54,.8);
+    --perm:#7FA6FF; --permsoft:#1C2B57; --permfg:#B9CCFF; --ambersoft:#3A3010; --amberfg:#F7D872;
+    --green:#4CD3A0; --greensoft:#123B30; --greenfg:#7BE0B8; --warn:#FFA24D; --warnsoft:#44280F; --warnfg:#FFC48A;
+    --red:#FF8A80; --redsoft:#471F20; --redfg:#FFB3AC;
+    --bd-grad:linear-gradient(135deg,rgba(96,165,250,.38),rgba(76,211,160,.26) 55%,rgba(247,216,114,.32));
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.28); --shadow-hover:0 14px 34px rgba(59,130,246,.28); color-scheme:dark}}
+  :root[data-theme="dark"]{
+    --bg:#0A1226; --card:#131D36; --fg:#E8EDF8; --muted:#9BA9C4; --bd:#25345A; --soft:#1A2644; --hover:#1F2D50; --glass:rgba(19,29,54,.8);
+    --perm:#7FA6FF; --permsoft:#1C2B57; --permfg:#B9CCFF; --ambersoft:#3A3010; --amberfg:#F7D872;
+    --green:#4CD3A0; --greensoft:#123B30; --greenfg:#7BE0B8; --warn:#FFA24D; --warnsoft:#44280F; --warnfg:#FFC48A;
+    --red:#FF8A80; --redsoft:#471F20; --redfg:#FFB3AC;
+    --bd-grad:linear-gradient(135deg,rgba(96,165,250,.38),rgba(76,211,160,.26) 55%,rgba(247,216,114,.32));
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.28); --shadow-hover:0 14px 34px rgba(59,130,246,.28); color-scheme:dark}
+
+  html{scroll-behavior:smooth}
+  body{color:var(--fg);padding-top:env(safe-area-inset-top);padding-bottom:calc(5.5rem + env(safe-area-inset-bottom));
+    background:radial-gradient(900px 420px at 92% -8%,rgba(59,130,246,.20),transparent 60%),radial-gradient(800px 460px at -8% 8%,rgba(22,153,106,.13),transparent 58%),var(--bg);background-attachment:fixed}
+  @media (min-width:768px){body{padding-bottom:3rem}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes popIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes ping{0%{transform:scale(1);opacity:.7}80%,100%{transform:scale(2.7);opacity:0}}
+  @keyframes ring{0%,55%,100%{transform:rotate(0)}60%{transform:rotate(15deg)}66%{transform:rotate(-13deg)}72%{transform:rotate(9deg)}78%{transform:rotate(-6deg)}84%{transform:rotate(0)}}
+  #tab-dash,#tab-book,#tab-set,#tab-trash{animation:fadeUp .35s ease both}
+  .pop{animation:popIn .24s cubic-bezier(.2,.8,.2,1) both} .fade{animation:fadeIn .2s both;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+
+  /* surfaces */
+  .card{background:linear-gradient(var(--card),var(--card)) padding-box,var(--bd-grad) border-box;border:1px solid transparent;border-radius:20px;box-shadow:var(--shadow)}
+  .muted{color:var(--muted)} .divider{border-color:var(--bd)}
+  .i{width:1.05em;height:1.05em;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .pulse{width:8px;height:8px;border-radius:50%;background:currentColor;position:relative;display:inline-block;flex:none}
+  .pulse::after{content:"";position:absolute;inset:0;border-radius:50%;background:currentColor;animation:ping 1.7s cubic-bezier(0,0,.2,1) infinite}
+  .bell-ring .i{animation:ring 2.6s ease-in-out infinite;transform-origin:50% 8%}
+
+  /* header */
+  .topbar{background:var(--grad-brand);color:#fff;position:relative;overflow:hidden}
+  .topbar::before{content:"";position:absolute;inset:0;background:radial-gradient(520px 220px at 88% 0%,rgba(255,201,60,.30),transparent 60%),radial-gradient(420px 220px at 6% 110%,rgba(52,211,153,.22),transparent 60%);pointer-events:none}
+  .topbar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:7px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.22) 0 3px,transparent 3px 30px);pointer-events:none}
+  .topbar>*{position:relative;z-index:1}
+  .logo{width:44px;height:44px;border-radius:14px;background:var(--grad-accent);color:#3a2400;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(255,138,61,.45);transition:transform .25s}
+  .logo:hover{transform:rotate(-6deg) scale(1.08)}
+  .logo .i{width:24px;height:24px;stroke-width:2.2}
+  .live-chip{display:inline-flex;align-items:center;gap:.45rem;padding:.25rem .7rem;border-radius:999px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.28);font-size:.75rem;font-weight:600;color:#fff;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .live-chip .pulse{color:#6EE7B7} .live-chip.off .pulse{color:#FCA5A5}
+  .nav-top button{color:#e6edff;padding:.5rem 1.05rem;border-radius:999px;font-weight:600;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:transform .18s,background .18s,box-shadow .18s}
+  .nav-top button:hover{background:rgba(255,255,255,.22);transform:translateY(-1px) scale(1.04)}
+  .nav-top button[aria-selected="true"]{background:var(--grad-accent);color:#2b1a00;border-color:transparent;box-shadow:0 6px 18px rgba(255,138,61,.45)}
+  .nav-bottom{position:fixed;left:0;right:0;bottom:0;background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--bd);padding:.35rem .5rem calc(.35rem + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);z-index:30}
+  @media (min-width:768px){.nav-bottom{display:none}}
+  .nav-bottom button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.72rem;font-weight:600;color:var(--muted);padding:.4rem;border-radius:14px;transition:background .2s,color .2s,transform .2s}
+  .nav-bottom button:active{transform:scale(.93)}
+  .nav-bottom button[aria-selected="true"]{color:#fff;background:var(--grad-pri);box-shadow:0 6px 16px rgba(37,99,235,.35)}
+  .nav-bottom svg{width:22px;height:22px;transition:transform .2s} .nav-bottom button[aria-selected="true"] svg{transform:scale(1.12)}
+
+  /* forms & buttons */
+  .field{width:100%;border:1px solid var(--bd);border-radius:14px;padding:.6rem .85rem;background:var(--card);color:var(--fg);min-height:44px;transition:border-color .15s,box-shadow .15s}
+  .field:hover{border-color:#93B4F5} .field:focus{outline:none;border-color:#3B82F6;box-shadow:0 0 0 4px rgba(59,130,246,.18)}
+  .field:disabled{opacity:.5}
+  .lbl{display:block;font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:.25rem}
+  .btn{border-radius:14px;padding:.6rem 1.1rem;font-weight:600;min-height:44px;transition:transform .18s,box-shadow .18s,background .18s,filter .18s}
+  .btn:hover{transform:translateY(-1px) scale(1.03)} .btn:active{transform:scale(.97)}
+  .btn-pri{background:var(--grad-pri);color:#fff;box-shadow:0 6px 16px rgba(37,99,235,.30)} .btn-pri:hover{box-shadow:0 10px 22px rgba(37,99,235,.42);filter:brightness(1.06)}
+  .btn-sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)} .btn-sec:hover{background:var(--hover);border-color:#93B4F5}
+  .btn-danger{color:var(--redfg)}
+  .btn-red{background:linear-gradient(135deg,#E0524A,#C8372D);color:#fff;box-shadow:0 6px 16px rgba(200,55,45,.32)}
+  .link-btn{font-size:.85rem;font-weight:600;color:var(--muted);padding:.25rem .5rem;border-radius:10px;transition:background .15s,color .15s,transform .15s}
+  .link-btn:hover{background:var(--hover);color:var(--fg);transform:scale(1.06)}
+  .link-danger{color:var(--redfg)} .link-danger:hover{background:var(--redsoft);color:var(--redfg)}
+  :is(button,input,select,textarea,[role=button]):focus-visible{outline:3px solid #60A5FA;outline-offset:2px}
+  .topbar :focus-visible{outline-color:#fff}
+  .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--soft);border-radius:16px;padding:4px;gap:4px;border:1px solid var(--bd)}
+  .seg button{border-radius:12px;padding:.65rem .5rem;font-weight:600;color:var(--muted);text-align:center;line-height:1.25;transition:background .2s,color .2s,transform .15s,box-shadow .2s}
+  .seg button:hover{transform:scale(1.02)} .seg button small{display:block;font-weight:400;font-size:.72rem}
+  .seg button[aria-pressed="true"]{background:var(--grad-pri);color:#fff;box-shadow:0 6px 16px rgba(37,99,235,.32)} .seg button[aria-pressed="true"] small{color:rgba(255,255,255,.82)}
+  .chip{border:1px solid var(--bd);border-radius:999px;padding:.3rem .85rem;font-size:.82rem;font-weight:600;background:var(--card);color:var(--muted);transition:transform .15s,background .15s}
+  .chip:hover{transform:scale(1.06);background:var(--hover)} .chip[aria-pressed="true"]{background:var(--grad-pri);border-color:transparent;color:#fff}
+
+  /* badges */
+  .badge{display:inline-flex;align-items:center;gap:.35rem;border-radius:999px;padding:.18rem .65rem;font-size:.72rem;font-weight:600;white-space:nowrap}
+  .badge .i{width:.95em;height:.95em}
+  .b-perm{background:var(--permsoft);color:var(--permfg)} .b-temp{background:var(--ambersoft);color:var(--amberfg)}
+  .b-free{background:var(--greensoft);color:var(--greenfg)} .b-bad{background:var(--redsoft);color:var(--redfg)}
+  .b-warn{background:var(--warnsoft);color:var(--warnfg)} .b-grey{background:var(--soft);color:var(--muted)}
+  .b-free .pulse{color:var(--green)}
+
+  /* dashboard */
+  .hero{background:var(--grad-brand);border-radius:24px;color:#fff;box-shadow:0 16px 38px rgba(23,60,148,.30);position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(420px 220px at 95% -10%,rgba(255,201,60,.32),transparent 60%),radial-gradient(360px 240px at 0% 120%,rgba(52,211,153,.26),transparent 60%);pointer-events:none}
+  .hero>*{position:relative}
+  .tile{border-radius:18px;padding:.8rem 1rem;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:transform .2s,background .2s}
+  .tile:hover{transform:translateY(-3px) scale(1.03);background:rgba(255,255,255,.22)}
+  .tile-use{background:rgba(251,191,36,.26);border-color:rgba(253,230,138,.55)} .tile-ok{background:rgba(52,211,153,.26);border-color:rgba(167,243,208,.55)}
+  .tile .lab{display:flex;align-items:center;gap:.35rem;font-size:.75rem;color:rgba(255,255,255,.88)}
+  #ringArc{transition:stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1)}
+  .zone-card{cursor:pointer;position:relative;overflow:hidden;transition:transform .22s,box-shadow .22s}
+  .zone-card::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:var(--lv)}
+  .zone-card:hover{transform:translateY(-4px) scale(1.012);box-shadow:var(--shadow-hover)} .zone-card:active{transform:scale(.99)}
+  .zone-card.enter{animation:fadeUp .5s cubic-bezier(.2,.8,.2,1) both}
+  .zone-card.enter:nth-child(2){animation-delay:.07s} .zone-card.enter:nth-child(3){animation-delay:.14s} .zone-card.enter:nth-child(4){animation-delay:.21s} .zone-card.enter:nth-child(n+5){animation-delay:.28s}
+  .lv-ok{--lv:linear-gradient(90deg,#34D399,#16996A)} .lv-warn{--lv:linear-gradient(90deg,#FFC93C,#E8710A)} .lv-full{--lv:linear-gradient(90deg,#FB7185,#D13B32)}
+  .ztile{width:40px;height:40px;border-radius:13px;background:var(--permsoft);color:var(--perm);display:flex;align-items:center;justify-content:center;flex:none;transition:transform .25s}
+  .ztile .i{width:22px;height:22px} .zone-card:hover .ztile{transform:rotate(-8deg) scale(1.1)}
+  .stack{display:flex;height:12px;border-radius:999px;overflow:hidden;background:var(--bd)}
+  .stack i{display:block;height:100%;transition:width .7s cubic-bezier(.2,.8,.2,1)}
+  .bar-perm{background:linear-gradient(90deg,#2453C7,#5B8DEF)} .bar-temp{background:linear-gradient(90deg,#FFC93C,#FF9F43)}
+  .dot{width:10px;height:10px;border-radius:4px;display:inline-block}
+
+  /* slots */
+  .slot{border:1px solid var(--bd);border-radius:16px;padding:.8rem;background:var(--card);min-height:104px;display:flex;flex-direction:column;gap:.15rem;transition:transform .18s,box-shadow .18s;animation:fadeUp .3s both}
+  .slot:hover{transform:translateY(-3px) scale(1.025);box-shadow:var(--shadow-hover)}
+  .slot-perm{background:linear-gradient(135deg,var(--permsoft),var(--card) 72%);border-left:5px solid var(--perm)}
+  .slot-temp{background:linear-gradient(135deg,var(--ambersoft),var(--card) 72%);border-left:5px solid var(--amber)}
+  .slot-free{background:linear-gradient(135deg,var(--greensoft),var(--card) 82%);border:1.5px dashed var(--green)}
+  .slot-no{display:flex;align-items:center;gap:.4rem;font-weight:700;font-size:1.1rem}
+  .slot-no .i{width:1.1rem;height:1.1rem;opacity:.8}
+
+  /* tables */
+  table.tbl{width:100%;border-collapse:collapse;font-size:.88rem}
+  .tbl th{background:var(--soft);color:var(--muted);text-align:left;padding:.65rem .75rem;font-weight:600;white-space:nowrap}
+  .tbl td{padding:.65rem .75rem;border-bottom:1px solid var(--bd);vertical-align:top;transition:background .15s}
+  .tbl tbody tr:hover td{background:var(--hover)}
+  .tbl tr.expired td{text-decoration:line-through;color:var(--muted);opacity:.75}
+  .tbl tr.expired td.keep{text-decoration:none;opacity:1}
+  .tbl-wrap{overflow:auto;max-height:68vh;border:1px solid var(--bd);border-radius:14px}
+  .tbl-wrap .tbl th{position:sticky;top:0;z-index:1}
+  .tbl-wrap .tbl td:first-child,.tbl-wrap .tbl th:first-child{padding-left:.9rem}
+  .cd{font-variant-numeric:tabular-nums}
+
+  /* floating + toast */
+  #toTop{position:fixed;right:1rem;bottom:calc(5.5rem + env(safe-area-inset-bottom));z-index:40;width:50px;height:50px;border-radius:999px;background:var(--grad-accent);color:#2b1a00;box-shadow:0 8px 22px rgba(255,138,61,.5);display:flex;align-items:center;justify-content:center;transition:transform .2s,box-shadow .2s}
+  #toTop:hover{transform:translateY(-3px) scale(1.1);box-shadow:0 12px 28px rgba(255,138,61,.6)} #toTop:active{transform:scale(.94)}
+  @media (min-width:768px){#toTop{bottom:1.5rem;right:1.5rem}}
+  #toast{animation:popIn .25s both}
+
+  /* ===== polish v6: micro-interactions ===== */
+  .btn-pri{position:relative;overflow:hidden}
+  .btn-pri::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.40) 50%,transparent 70%);transform:translateX(-130%);transition:transform .65s;pointer-events:none}
+  .btn-pri:hover::after{transform:translateX(130%)}
+  .btn-red,.btn-sec{transition:transform .18s,box-shadow .18s,background .18s,border-color .18s}
+  .btn-red:hover{box-shadow:0 10px 22px rgba(200,55,45,.42);filter:brightness(1.05)}
+  .badge{transition:transform .15s,box-shadow .15s} .badge:hover{transform:scale(1.07)}
+  .lv-ok .ztile{background:var(--greensoft);color:var(--greenfg)}
+  .lv-warn .ztile{background:var(--warnsoft);color:var(--warnfg)}
+  .lv-full .ztile{background:var(--redsoft);color:var(--redfg)}
+  .zone-card:hover{border-color:transparent}
+  .slot{animation-delay:calc(var(--i,0)*18ms)}
+  #ringArc{filter:drop-shadow(0 0 7px rgba(255,255,255,.35));transition:stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1)}
+  .tile{position:relative;overflow:hidden}
+  .tile::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 35%,rgba(255,255,255,.22) 50%,transparent 65%);transform:translateX(-130%);transition:transform .7s;pointer-events:none}
+  .tile:hover::after{transform:translateX(130%)}
+  .tile>div:last-child{font-variant-numeric:tabular-nums}
+  #toTop:not(.hidden){animation:popIn .3s both}
+  .seg button[aria-pressed="true"]{transform:scale(1.015)}
+  .nav-bottom button{position:relative}
+  .nav-bottom button[aria-selected="true"]::after{content:"";position:absolute;top:-2px;left:50%;width:22px;height:3px;margin-left:-11px;border-radius:999px;background:var(--amber)}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body class="font-sans min-h-screen">
+
+<header class="topbar">
+  <div class="max-w-[1600px] mx-auto px-4 pt-4 pb-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="logo" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 16l1.5-5.2A2 2 0 0 1 8.4 9.4h7.2a2 2 0 0 1 1.9 1.4L19 16"/><rect x="3" y="16" width="18" height="4" rx="1.5"/><path d="M7 18h.01M17 18h.01"/><path d="M12 3v3M9.5 4.5L12 3l2.5 1.5" /></svg></div>
+      <div>
+        <h1 class="text-lg sm:text-xl font-bold leading-tight">Parking Management &amp; Booking</h1>
+        <p class="text-xs text-slate-300">ระบบบริหารจัดการและจองที่จอดรถ ITC2</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="netChip" class="live-chip"><i class="pulse"></i><span id="netTxt">ออนไลน์</span></span>
+      <div class="text-right leading-tight">
+        <div id="clockDate" class="text-sm font-semibold"></div>
+        <div id="clockTime" class="text-xs text-slate-200"></div>
+      </div>
+    </div>
+  </div>
+  <nav class="nav-top max-w-[1600px] mx-auto px-4 pb-3 gap-2 hidden md:flex" role="tablist" aria-label="เมนูหลัก">
+    <button role="tab" data-tab="dash">แดชบอร์ดความจุ</button>
+    <button role="tab" data-tab="book">บันทึกการจอง / ลงทะเบียน</button>
+    <button role="tab" data-tab="set">ตั้งค่าและข้อมูลสำรอง</button>
+    <button role="tab" data-tab="trash">ถังขยะ <span id="trashBadge" class="badge b-bad hidden">0</span></button>
+  </nav>
+</header>
+
+<nav class="nav-bottom" role="tablist" aria-label="เมนูหลัก (มือถือ)">
+  <button role="tab" data-tab="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>แดชบอร์ด</button>
+  <button role="tab" data-tab="book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>จอง/ลงทะเบียน</button>
+  <button role="tab" data-tab="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>ตั้งค่า</button>
+  <button role="tab" data-tab="trash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span>ถังขยะ <span id="trashBadge2" class="badge b-bad hidden">0</span></span></button>
+</nav>
+
+<main class="max-w-[1600px] mx-auto px-4 py-5">
+
+<!-- ================= DASHBOARD ================= -->
+<section id="tab-dash" class="space-y-5">
+  <div class="hero p-4 sm:p-6 flex flex-col sm:flex-row items-center gap-5 sm:gap-8">
+    <div class="relative shrink-0" style="width:140px;height:140px">
+      <svg viewBox="0 0 132 132" width="140" height="140" aria-hidden="true">
+        <defs><linearGradient id="ringOk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A7F3D0"/><stop offset="1" stop-color="#34D399"/></linearGradient><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FDE68A"/><stop offset="1" stop-color="#FB923C"/></linearGradient><linearGradient id="ringRed" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FCA5A5"/><stop offset="1" stop-color="#F43F5E"/></linearGradient></defs>
+        <circle cx="66" cy="66" r="54" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="14"/>
+        <circle id="ringArc" cx="66" cy="66" r="54" fill="none" stroke="url(#ringGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="339.3" stroke-dashoffset="339.3" transform="rotate(-90 66 66)"/>
+      </svg>
+      <div class="absolute inset-0 flex flex-col items-center justify-center"><div id="ringPct" class="text-3xl font-bold">0%</div><div class="text-xs" style="color:rgba(255,255,255,.85)">ใช้งานแล้ว</div></div>
+    </div>
+    <div class="flex-1 w-full">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h2 class="text-lg font-bold">ภาพรวมที่จอดรถวันนี้</h2>
+        <span class="live-chip"><i class="pulse"></i><span id="todayLabel"></span></span>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div class="tile"><div class="lab"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="4"/><path d="M10 17V7h3a3 3 0 0 1 0 6h-3"/></svg>ความจุทั้งหมด</div><div id="sumTotal" class="text-3xl font-bold">0</div></div>
+        <div class="tile tile-use"><div class="lab"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16l1.5-5.2A2 2 0 0 1 8.4 9.4h7.2a2 2 0 0 1 1.9 1.4L19 16"/><rect x="3" y="16" width="18" height="4" rx="1.5"/><path d="M7 18h.01M17 18h.01"/></svg>จอง/ใช้งานแล้ว</div><div id="sumUsed" class="text-3xl font-bold">0</div></div>
+        <div class="tile tile-ok"><div class="lab"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>ช่องจอดว่าง</div><div id="sumFree" class="text-3xl font-bold">0</div></div>
+      </div>
+      <div id="sumSplit" class="text-sm mt-3" style="color:rgba(255,255,255,.88)"></div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between gap-3">
+    <h2 class="text-lg font-bold">สถานที่ / โซน</h2>
+    <p class="text-xs muted">แตะการ์ดเพื่อดูรายละเอียดแต่ละช่องจอด</p>
+  </div>
+  <div id="zoneGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"></div>
+  <p class="text-xs muted">นับเฉพาะผู้ถือที่จอดระยะยาวที่ยังใช้งานอยู่ และรายการชั่วคราวของวันนี้ที่ยังไม่หมดอายุ รายการที่ถูกขีดฆ่าหรือยกเลิกจะไม่ถูกนับ</p>
+</section>
+
+<!-- ================= BOOKING (UNIFIED) ================= -->
+<section id="tab-book" class="hidden space-y-5">
+  <div class="card p-4 sm:p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 id="bTitle" class="text-lg font-bold">บันทึกการจอง / ลงทะเบียน</h2>
+      <div class="seg w-full sm:w-auto" style="min-width:min(100%,24rem)" role="group" aria-label="ประเภทการจอง">
+        <button type="button" data-type="temp" aria-pressed="true">ชั่วคราว<small>Supplier / ผู้ติดต่อ / ผู้สมัครงาน</small></button>
+        <button type="button" data-type="perm" aria-pressed="false">ระยะยาว<small>พนักงานระดับสูง</small></button>
+      </div>
+    </div>
+
+    <form id="bookForm" class="grid grid-cols-2 lg:grid-cols-4 gap-3" autocomplete="off">
+      <input type="hidden" id="bId">
+      <div class="col-span-2"><label class="lbl" for="bName" id="bNameLbl">ชื่อ-นามสกุล / บริษัท *</label><input id="bName" class="field" required maxlength="120"></div>
+      <div class="col-span-2 lg:col-span-1"><label class="lbl" for="bPlate">ทะเบียนรถ *</label><input id="bPlate" class="field" required maxlength="20" placeholder="เช่น กข 1234"></div>
+      <div class="col-span-2 lg:col-span-1"><label class="lbl" for="bZone">สถานที่ / โซน *</label><select id="bZone" class="field" required></select></div>
+      <p id="bZoneHint" class="col-span-2 lg:col-span-4 text-xs rounded-xl px-3 py-2 hidden" style="background:var(--permsoft);color:var(--permfg)">ที่จอดระยะยาวเลือกได้เฉพาะ PILOT PLANT และ บ่อบำบัดน้ำเสีย</p>
+
+      <!-- ชั่วคราว -->
+      <div class="g-temp contents">
+        <div class="col-span-2 lg:col-span-1"><label class="lbl" for="bKind">ประเภทผู้จอด</label>
+          <select id="bKind" class="field"><option>Supplier</option><option>ผู้ติดต่อภายนอก</option><option>ผู้สมัครงาน</option><option>ลูกค้า</option></select></div>
+        <div class="col-span-2 lg:col-span-1"><label class="lbl" for="bDate">วันที่เข้าจอด *</label><input id="bDate" type="date" class="field" required></div>
+        <div><label class="lbl" for="bFrom">เวลาเข้า *</label><input id="bFrom" type="time" class="field" required value="08:00"></div>
+        <div><label class="lbl" for="bTo">เวลาออก (โดยประมาณ) *</label><input id="bTo" type="time" class="field" required value="17:00"></div>
+        <div id="bTSlotWrap" class="col-span-2 lg:col-span-1"><label class="lbl" for="bTSlot">หมายเลขช่องจอด (ไม่บังคับ)</label><select id="bTSlot" class="field"></select></div>
+        <div class="col-span-2 lg:col-span-3"><label class="lbl" for="bNote">หมายเหตุ</label><input id="bNote" class="field" maxlength="200" placeholder="ผู้ที่มาติดต่อ / วัตถุประสงค์"></div>
+      </div>
+
+      <!-- ระยะยาว -->
+      <div class="g-perm contents hidden">
+        <div class="col-span-2 lg:col-span-1"><label class="lbl" for="bEmp">รหัสพนักงาน *</label><input id="bEmp" class="field" maxlength="30"></div>
+        <div class="col-span-2 lg:col-span-1"><label class="lbl" for="bDept">แผนก</label><input id="bDept" class="field" maxlength="80"></div>
+        <div class="col-span-2 lg:col-span-1"><label class="lbl" for="bDiv">ฝ่าย</label><input id="bDiv" class="field" maxlength="80"></div>
+        <div class="col-span-2 lg:col-span-1"><label class="lbl" for="bSlot">หมายเลขช่องจอด *</label><select id="bSlot" class="field"></select></div>
+      </div>
+      <p id="bSlotHint" class="col-span-2 lg:col-span-4 text-xs muted"></p>
+
+      <div class="col-span-2 lg:col-span-4 flex flex-wrap gap-2 pt-1">
+        <button id="bSubmit" class="btn btn-pri" type="submit">บันทึกการจอง</button>
+        <button id="bCancel" class="btn btn-sec hidden" type="button">ยกเลิกแก้ไข</button>
+      </div>
+    </form>
+    <p id="bMsg" class="text-sm mt-3 hidden" role="alert"></p>
+  </div>
+
+  <!-- ประวัติชั่วคราว -->
+  <div id="listTemp" class="card p-4 sm:p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-lg font-bold">ประวัติการจอดชั่วคราว <span id="tCount" class="text-sm font-normal muted"></span></h2>
+      <button id="btnExportTemp" class="btn btn-sec !min-h-0 !py-2" type="button">ส่งออก CSV</button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-2">
+      <input id="lSearch" class="field" placeholder="ค้นหาชื่อ / ทะเบียน" aria-label="ค้นหา">
+      <select id="lZone" class="field" aria-label="กรองสถานที่"></select>
+      <select id="lStatus" class="field" aria-label="กรองสถานะ">
+        <option value="">ทุกสถานะ</option><option value="today">จอดวันนี้</option><option value="upcoming">จองล่วงหน้า</option><option value="expired">หมดอายุ</option><option value="cancelled">ยกเลิก</option>
+      </select>
+      <div class="flex gap-2"><input id="lDate" type="date" class="field" aria-label="กรองตามวันที่เข้าจอด" title="กรองตามวันที่เข้าจอด"><button type="button" class="btn btn-sec !min-h-0 !px-3" data-act="clear-ldate">ล้าง</button></div>
+    </div>
+    <p id="lNote" class="text-xs muted mb-3 hidden"></p>
+    <div class="tbl-wrap"><table class="tbl" style="min-width:1080px">
+      <thead><tr><th>วันที่</th><th>เวลา</th><th>ชื่อ / บริษัท</th><th>ทะเบียน</th><th>สถานที่</th><th>ช่อง</th><th>สถานะ</th><th>แก้ไขล่าสุด</th><th>จัดการ</th></tr></thead>
+      <tbody id="tempBody"></tbody>
+    </table></div>
+  </div>
+
+  <!-- ทางลัดไปยังข้อมูลหลักระยะยาว (ย้ายไปเมนูตั้งค่า) -->
+  <div id="permHint" class="card p-4 sm:p-5 hidden flex flex-wrap items-center justify-between gap-3">
+    <p class="text-sm muted">ดู ค้นหา แก้ไข นำเข้า/ส่งออกรายชื่อที่จอดระยะยาวได้ที่เมนู "ตั้งค่าและข้อมูลสำรอง"</p>
+    <button class="btn btn-sec !min-h-0 !py-2" type="button" data-act="goto-settings">ไปที่ข้อมูลหลักที่จอดระยะยาว</button>
+  </div>
+</section>
+
+<!-- ================= SETTINGS ================= -->
+<section id="tab-set" class="hidden space-y-5">
+  <!-- ข้อมูลหลักระยะยาว -->
+  <div id="listPerm" class="card p-4 sm:p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <h2 class="text-lg font-bold">ข้อมูลหลักที่จอดระยะยาว <span id="pCount" class="text-sm font-normal muted"></span></h2>
+      <div class="flex flex-wrap gap-2">
+        <button class="btn btn-pri !min-h-0 !py-2" type="button" data-act="goto-perm-form">+ ลงทะเบียนใหม่</button>
+        <button id="btnImportPerm" class="btn btn-sec !min-h-0 !py-2" type="button">นำเข้า Excel / CSV</button>
+        <button id="btnExportPerm" class="btn btn-sec !min-h-0 !py-2" type="button">ส่งออก CSV</button>
+        <input id="permFile" type="file" accept=".xlsx,.xls,.csv,text/csv" class="hidden">
+      </div>
+    </div>
+    <p class="text-xs muted mb-3">นำเข้าไฟล์ Excel (.xlsx) ได้โดยตรง ระบบอ่านทุกชีต หาแถวหัวตารางให้เอง (ชื่อ-นามสกุล, รหัสพนักงาน, ทะเบียน, แผนก, ฝ่าย, สถานที่, หมายเลขช่อง) ถ้าไม่มีคอลัมน์สถานที่จะใช้ชื่อชีตแทน (เช่นชีตชื่อ PILOT PLANT) และจะแสดงสรุปให้ตรวจสอบก่อนนำเข้าจริง</p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+      <input id="pSearch" class="field sm:col-span-2" placeholder="ค้นหาชื่อ / รหัส / ทะเบียน / ช่อง" aria-label="ค้นหา">
+      <select id="pZoneFilter" class="field" aria-label="กรองสถานที่"></select>
+    </div>
+    <div class="tbl-wrap"><table class="tbl" style="min-width:1220px">
+      <thead><tr><th>ชื่อ-นามสกุล</th><th>รหัส</th><th>ทะเบียน</th><th>แผนก</th><th>ฝ่าย</th><th>สถานที่</th><th>ช่อง</th><th>สถานะ</th><th>แก้ไขล่าสุด</th><th>จัดการ</th></tr></thead>
+      <tbody id="permBody"></tbody>
+    </table></div>
+  </div>
+
+  <div class="space-y-5 max-w-4xl">
+  <div class="card p-4 sm:p-6">
+    <h2 class="text-lg font-bold mb-1">สถานที่ / โซน และหมายเลขช่องจอด</h2>
+    <p class="text-sm muted mb-4">กำหนดหมายเลขช่องจอดตามที่ใช้งานจริงของแต่ละสถานที่ เช่น <b>1-45</b> หรือ <b>1-10, 15, 20, A1</b> ความจุคำนวณจากจำนวนช่องอัตโนมัติ ที่จอดระยะยาวใช้ได้เฉพาะ PILOT PLANT และ บ่อบำบัดน้ำเสีย (ค่าเริ่มต้นเป็นตัวอย่าง กรุณาแก้ให้ตรงหน้างาน)</p>
+    <div id="zoneEdit" class="space-y-3"></div>
+    <form id="zoneForm" class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+      <div><label class="lbl" for="zName">ชื่อสถานที่ใหม่</label><input id="zName" class="field" required maxlength="60"></div>
+      <div><label class="lbl" for="zSlots">หมายเลขช่องจอด</label><input id="zSlots" class="field" required value="1-10"></div>
+      <button class="btn btn-pri" type="submit">เพิ่มสถานที่</button>
+    </form>
+  </div>
+  <div class="card p-4 sm:p-6">
+    <h2 class="text-lg font-bold mb-1">ข้อมูลสำรอง</h2>
+    <p class="text-sm muted mb-4">ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้ (localStorage) ควรดาวน์โหลดไฟล์สำรองเป็นระยะ และใช้ไฟล์เดียวกันย้ายข้อมูลไปเครื่องอื่นได้</p>
+    <div class="flex flex-wrap gap-2">
+      <button id="btnBackup" class="btn btn-pri" type="button">ดาวน์โหลดไฟล์สำรอง (JSON)</button>
+      <button id="btnRestore" class="btn btn-sec" type="button">กู้คืนจากไฟล์สำรอง</button>
+      <input id="restoreFile" type="file" accept=".json,application/json" class="hidden">
+      <button id="btnClearTemp" class="btn btn-sec btn-danger" type="button">ย้ายรายการจองชั่วคราวทั้งหมดไปถังขยะ</button>
+      <button id="btnReset" class="btn btn-sec btn-danger" type="button">ล้างข้อมูลทั้งหมด</button>
+    </div>
+  </div>
+  </div>
+</section>
+<!-- ================= TRASH ================= -->
+<section id="tab-trash" class="hidden space-y-5">
+  <div class="card p-4 sm:p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+      <h2 class="text-lg font-bold">ถังขยะ / รายการที่ถูกลบ <span id="trashCount" class="text-sm font-normal muted"></span></h2>
+      <button id="btnEmptyTrash" class="btn btn-sec btn-danger !min-h-0 !py-2" type="button">ล้างถังขยะ</button>
+    </div>
+    <p class="text-sm muted mb-4">รายการที่ลบจะถูกเก็บไว้ที่นี่ 30 วัน กดกู้คืนได้ตลอดเวลา เมื่อครบกำหนดระบบจะลบถาวรอัตโนมัติ</p>
+    <div class="tbl-wrap"><table class="tbl" style="min-width:860px">
+      <thead><tr><th>ประเภท</th><th>รายการ</th><th>ลบเมื่อ</th><th>เวลาที่เหลือก่อนลบถาวร</th><th>จัดการ</th></tr></thead>
+      <tbody id="trashBody"></tbody>
+    </table></div>
+  </div>
+</section>
+</main>
+
+<!-- ================= MODAL: ZONE DETAIL ================= -->
+<div id="modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="absolute inset-0 fade" style="background:rgba(8,16,40,.55)" data-act="close-modal"></div>
+  <div class="card pop relative mx-auto flex flex-col overflow-hidden" style="max-width:min(1500px,calc(100% - 1.5rem));width:calc(100% - 1.5rem);margin-top:max(.75rem,env(safe-area-inset-top));max-height:calc(100% - 1.5rem - env(safe-area-inset-top))">
+    <div class="p-4 sm:p-5 divider border-b">
+      <div class="flex items-start justify-between gap-3">
+        <div><h3 id="mTitle" class="text-xl font-bold"></h3><div id="mStats" class="flex flex-wrap gap-2 mt-2"></div></div>
+        <button id="mClose" class="btn btn-sec !px-3" data-act="close-modal" aria-label="ปิด">ปิด</button>
+      </div>
+      <div class="flex flex-wrap items-end gap-3 mt-4">
+        <div><label class="lbl" for="mDate">ดูสถานะของวันที่</label><input id="mDate" type="date" class="field !w-44"></div>
+        <div id="mFilters" class="flex flex-wrap gap-2" role="group" aria-label="กรองช่องจอด">
+          <button class="chip" data-filter="all" aria-pressed="true">ทั้งหมด</button>
+          <button class="chip" data-filter="perm" aria-pressed="false">ระยะยาว</button>
+          <button class="chip" data-filter="temp" aria-pressed="false">ชั่วคราว</button>
+          <button class="chip" data-filter="free" aria-pressed="false">ว่าง</button>
+        </div>
+      </div>
+    </div>
+    <div id="mBody" class="p-4 sm:p-5 overflow-y-auto"></div>
+  </div>
+</div>
+
+<div id="dlg" class="fixed inset-0 hidden" style="z-index:70" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+  <div class="absolute inset-0 fade" style="background:rgba(8,16,40,.6)" data-dlg-close="1"></div>
+  <div class="card pop relative mx-auto p-5" style="max-width:34rem;width:calc(100% - 1.5rem);margin-top:max(4rem,env(safe-area-inset-top));max-height:calc(100% - 6rem);overflow:auto">
+    <h3 id="dlgTitle" class="text-lg font-bold mb-3"></h3>
+    <div id="dlgBody" class="text-sm mb-5"></div>
+    <div id="dlgBtns" class="flex flex-wrap justify-end gap-2"></div>
+  </div>
+</div>
+
+<button id="toTop" class="hidden" type="button" aria-label="เลื่อนขึ้นด้านบนสุด" title="เลื่อนขึ้นด้านบนสุด"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 text-white px-4 py-2 rounded-xl shadow-lg text-sm hidden z-[60]" style="background:var(--grad-brand);bottom:calc(5.5rem + env(safe-area-inset-bottom))" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Constants & storage ---------- */
+const LS_KEY = 'itc2_parking_v4', LS_OLD = ['itc2_parking_v3', 'itc2_parking_v2', 'itc2_parking_v1'], TZ = 'Asia/Bangkok';
+const TRASH_MS = 30 * 24 * 3600 * 1000;                      // เก็บในถังขยะ 30 วัน
+const FREE_ZONES = ['หน้าตึก 2.2', 'โรงไฟฟ้า'];   // พื้นที่จอดอิสระ ไม่กำหนดหมายเลขช่อง
+const PERM_ZONES = ['pilot plant', 'บ่อบำบัดน้ำเสีย'];          // ที่จอดระยะยาวเลือกได้เฉพาะสองสถานที่นี้
+/* ข้อมูลเริ่มต้นจริง (Master Data) — วางข้อมูลที่ได้จากไฟล์ Excel ตรงนี้ รูปแบบ:
+   { zones:[{id,name,slots:[...]}], permanent:[{id,name,empId,plate,dept,division,zone:<zone id>,slot,active:true}], temp:[] } */
+/*INITIAL_DATA_START*/
+const INITIAL_DATA = null;
+/*INITIAL_DATA_END*/
+const isPermZone = z => !!z && PERM_ZONES.includes(String(z.name).trim().toLowerCase());
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
+const dayNum = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
+const fmtDate = s => { if (!s) return ''; const [y, m, d] = s.split('-'); return `${d}/${m}/${Number(y) + 543}`; };
+const tsFmt = new Intl.DateTimeFormat('th-TH', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+const fmtTs = ms => ms ? tsFmt.format(new Date(ms)) : '—';
+
+/* ---------- Audit: เวลาสร้าง/แก้ไขล่าสุด + ประวัติ ---------- */
+function stamp(r, a) { const n = Date.now(); r.createdAt = n; r.updatedAt = n; r.log = [{ at: n, a }]; return r; }
+function touch(r, a) { const n = Date.now(); r.updatedAt = n; r.log = r.log || []; r.log.push({ at: n, a }); if (r.log.length > 40) r.log = r.log.slice(-40); return r; }
+
+/* ---------- Slots (หมายเลขช่องจริง) ---------- */
+const normSlot = s => String(s ?? '').trim().toLowerCase();
+function parseSlots(text) {
+  const out = [], seen = new Set();
+  const add = l => { const k = normSlot(l); if (k && !seen.has(k)) { seen.add(k); out.push(String(l).trim()); } };
+  String(text || '').split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).forEach(tok => {
+    const m = tok.match(/^(\d+)\s*[-–~]\s*(\d+)$/);
+    if (m) { let a = +m[1], b = +m[2]; if (a > b) [a, b] = [b, a]; if (b - a > 999) b = a + 999; for (let i = a; i <= b; i++) add(i); } else add(tok);
+  });
+  return out.slice(0, 1000);
+}
+function slotsText(slots) {
+  const out = []; let i = 0; const num = v => /^\d+$/.test(v);
+  while (i < slots.length) {
+    const s = slots[i];
+    if (num(s)) { let j = i; while (j + 1 < slots.length && num(slots[j + 1]) && +slots[j + 1] === +slots[j] + 1) j++; out.push(j > i + 1 ? `${s}-${slots[j]}` : j > i ? `${s}, ${slots[j]}` : s); i = j + 1; }
+    else { out.push(s); i++; }
+  }
+  return out.join(', ');
+}
+const hasSlot = (z, s) => z.slots.some(x => normSlot(x) === normSlot(s));
+const isFree = z => !!(z && z.free);
+const capOf = z => z ? (z.free ? (+z.capacity || 0) : z.slots.length) : 0;
+
+function seed() {
+  if (INITIAL_DATA) {
+    const d = JSON.parse(JSON.stringify(INITIAL_DATA)); d.temp = d.temp || []; d.permanent = d.permanent || []; d.trash = [];
+    d.zones.forEach(z => stamp(z, 'ข้อมูลเริ่มต้นของระบบ')); d.permanent.forEach(p => stamp(p, 'ข้อมูลเริ่มต้นของระบบ')); d.temp.forEach(t => stamp(t, 'ข้อมูลเริ่มต้นของระบบ'));
+    return d;
+  }
+  const Z = (name, slots) => stamp({ id: uid(), name, slots: parseSlots(slots), capacity: parseSlots(slots).length }, 'สร้างสถานที่');
+  const ZF = (name, cap) => stamp({ id: uid(), name, slots: [], free: true, capacity: cap }, 'สร้างสถานที่');   // จอดอิสระ ไม่กำหนดช่อง
+  return { zones: [Z('PILOT PLANT', '1-45'), Z('บ่อบำบัดน้ำเสีย', '1-20'), ZF('หน้าตึก 2.2', 15), ZF('โรงไฟฟ้า', 20)], permanent: [], temp: [], trash: [] };
+}
+let db;
+function normalizeDb() {
+  db.zones = db.zones || []; db.permanent = db.permanent || []; db.temp = db.temp || []; db.trash = db.trash || [];
+  db.zones.forEach(z => {
+    if (z.free === undefined) z.free = !isPermZone(z) && FREE_ZONES.includes(String(z.name).trim());   // ข้อมูลเดิม: หน้าตึก 2.2 / โรงไฟฟ้า -> จอดอิสระ (ความจุเดิมคงไว้)
+    if (z.free) { const c = Math.floor(+z.capacity); z.capacity = c > 0 ? c : ((Array.isArray(z.slots) && z.slots.length) || 10); z.slots = []; return; }
+    if (!Array.isArray(z.slots) || !z.slots.length) { z.slots = []; for (let i = 1; i <= (z.capacity || 0); i++) z.slots.push(String(i)); }
+    db.permanent.forEach(p => { if (p.zone === z.id && p.slot && !hasSlot(z, p.slot)) z.slots.push(String(p.slot).trim()); });
+    z.capacity = z.slots.length;
+  });
+  db.temp.forEach(t => { if (t.slot == null) t.slot = ''; const z = db.zones.find(x => x.id === t.zone); if (z && z.free) t.slot = ''; });
+  purgeTrash();
+}
+function purgeTrash() { const n = db.trash.length; db.trash = db.trash.filter(x => x.deletedAt + TRASH_MS > Date.now()); return n !== db.trash.length; }
+function load() {
+  for (const k of [LS_KEY, ...LS_OLD]) {
+    try { const raw = localStorage.getItem(k); if (raw) { const d = JSON.parse(raw); if (d && Array.isArray(d.zones)) { db = d; break; } } } catch (e) {}
+  }
+  if (!db) db = seed();
+  normalizeDb();
+}
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch (e) { toast('บันทึกลงเบราว์เซอร์ไม่ได้ — โปรดดาวน์โหลดไฟล์สำรอง'); } }
+
+/* ---------- Helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const normPlate = p => String(p || '').replace(/[\s\-]/g, '').toUpperCase();
+const getZone = id => db.zones.find(z => z.id === id);
+const zoneName = id => (getZone(id) || { name: '(ไม่พบสถานที่)' }).name;
+const IC = {
+  car: '<path d="M5 16l1.5-5.2A2 2 0 0 1 8.4 9.4h7.2a2 2 0 0 1 1.9 1.4L19 16"/><rect x="3" y="16" width="18" height="4" rx="1.5"/><path d="M7 18h.01M17 18h.01"/>',
+  bell: '<path d="M6 17h12l-1.6-2.4V10a4.4 4.4 0 0 0-8.8 0v4.6L6 17z"/><path d="M10 20h4"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  park: '<rect x="4" y="3" width="16" height="18" rx="4"/><path d="M10 17V7h3a3 3 0 0 1 0 6h-3"/>',
+  slash: '<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>'
+};
+const ico = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
+const bdg = (cls, icon, text, extra = '') => `<span class="badge ${cls} ${extra}">${icon}${text}</span>`;
+const PULSE = '<i class="pulse"></i>';
+let enterAnim = true;
+let toastTimer;
+function toast(m) { const t = $('toast'); t.textContent = m; t.classList.remove('hidden'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 3800); }
+function flash(m, good) { const e = $('bMsg'); e.textContent = m; e.className = 'text-sm mt-3'; e.style.color = good ? 'var(--green)' : 'var(--red)'; }
+function clearFlash() { $('bMsg').className = 'hidden'; }
+
+/* ---------- Dialog (แทน confirm() ซึ่งถูกบล็อกในบางสภาพแวดล้อม จึงทำให้ปุ่มลบไม่ทำงาน) ---------- */
+let dlgResolve = null, dlgButtons = [], dlgLast = null;
+function openDialog({ title, body, buttons }) {
+  return new Promise(res => {
+    if (dlgResolve) dlgResolve(false);
+    dlgResolve = res; dlgButtons = buttons; dlgLast = document.activeElement;
+    $('dlgTitle').textContent = title; $('dlgBody').innerHTML = body;
+    $('dlgBtns').innerHTML = buttons.map((b, i) => `<button class="btn ${b.cls || 'btn-sec'}" data-dlg="${i}" type="button">${esc(b.label)}</button>`).join('');
+    $('dlg').classList.remove('hidden');
+    const last = $('dlgBtns').lastElementChild; if (last && last.focus) last.focus();
+  });
+}
+function closeDlg(val) {
+  $('dlg').classList.add('hidden'); const r = dlgResolve; dlgResolve = null;
+  if (dlgLast && dlgLast.focus) { try { dlgLast.focus(); } catch (e) {} }
+  if (r) r(val);
+}
+const askConfirm = (msg, ok = 'ยืนยัน', danger = false, title = 'โปรดยืนยัน') =>
+  openDialog({ title, body: `<p>${msg}</p>`, buttons: [{ label: 'ยกเลิก', value: false }, { label: ok, value: true, cls: danger ? 'btn-red' : 'btn-pri' }] });
+function showHistory(r, title) {
+  const rows = (r.log || []).slice().reverse().map(l => `<li class="flex justify-between gap-3 py-1.5 border-b divider"><span>${esc(l.a)}</span><span class="muted whitespace-nowrap">${fmtTs(l.at)}</span></li>`).join('') ||
+    '<li class="muted">ยังไม่มีประวัติ (รายการนี้มีมาก่อนระบบบันทึกเวลา)</li>';
+  return openDialog({ title: 'ประวัติการแก้ไข: ' + title, body: `<p class="muted mb-2">สร้างเมื่อ ${fmtTs(r.createdAt)} / แก้ไขล่าสุด ${fmtTs(r.updatedAt)}</p><ul>${rows}</ul>`, buttons: [{ label: 'ปิด', value: true, cls: 'btn-pri' }] });
+}
+
+/* ---------- Business logic ---------- */
+// รายการชั่วคราว: เลยวันเข้าจอดไป 1 วันขึ้นไป (วันที่เวลาไทย) = หมดอายุ → ขีดฆ่า และไม่นับความจุ
+// หมดอายุทันทีเมื่อพ้นวันเข้าจอด หรือเลยเวลาออกของวันนั้น (เวลาไทย) → ขีดฆ่า และไม่นับความจุทันที
+const nowHM = () => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+const isEnded = (date, to) => date < today() || (date === today() && !!to && to <= nowHM());
+function tempStatus(it) {
+  if (it.cancelled) return 'cancelled';
+  if (isEnded(it.date, it.to)) return 'expired';
+  return it.date === today() ? 'today' : 'upcoming';
+}
+const ST_TXT = { today: 'จอดวันนี้', upcoming: 'จองล่วงหน้า', expired: 'หมดเวลา/สิ้นสุดการจอด', cancelled: 'ยกเลิก' };
+const ST_CLS = { today: 'b-warn', upcoming: 'b-perm', expired: 'b-grey', cancelled: 'b-bad' };
+const ST_ICO = { today: 'bell', upcoming: 'clock', expired: 'slash', cancelled: 'x' };
+const isLive = t => ['today', 'upcoming'].includes(tempStatus(t));
+const permList = zid => db.permanent.filter(p => p.active && p.zone === zid);
+const tempList = (zid, date) => db.temp.filter(t => t.zone === zid && t.date === date && isLive(t));
+function zoneStats(z) {
+  const perm = permList(z.id).length, tmp = tempList(z.id, today()).length, used = perm + tmp;
+  return { perm, tmp, used, free: capOf(z) - used, upcoming: db.temp.filter(t => t.zone === z.id && tempStatus(t) === 'upcoming').length };
+}
+// ช่องที่ว่างจริงตามหมายเลขที่ตั้งไว้ (exceptId = รายการที่กำลังแก้ไข ไม่นับว่าใช้ช่อง)
+function freeSlotsFor(z, kind, date, exceptId) {
+  const occ = new Set();
+  db.permanent.forEach(p => { if (p.active && p.zone === z.id && !(kind === 'perm' && p.id === exceptId)) occ.add(normSlot(p.slot)); });
+  db.temp.forEach(t => { if (t.zone !== z.id || !t.slot || !isLive(t) || (kind === 'temp' && t.id === exceptId)) return; if (kind === 'temp' && t.date !== date) return; occ.add(normSlot(t.slot)); });
+  return z.slots.filter(s => !occ.has(normSlot(s)));
+}
+function buildSlots(z, date) {
+  if (z.free) { const list = tempList(z.id, date); return { items: list.map(t => ({ k: 'temp', slot: '', t, loose: true })), used: list.length, total: capOf(z), free: capOf(z) - list.length, loose: 0, isFree: true }; }   // จอดอิสระ: ไม่มีช่อง
+  const permBy = new Map(), tempBy = new Map(), loose = [];
+  permList(z.id).forEach(p => permBy.set(normSlot(p.slot), p));
+  tempList(z.id, date).forEach(t => { if (t.slot && hasSlot(z, t.slot) && !permBy.has(normSlot(t.slot))) tempBy.set(normSlot(t.slot), t); else loose.push(t); });
+  const items = z.slots.map(lbl => {
+    const k = normSlot(lbl);
+    if (permBy.has(k)) return { k: 'perm', slot: lbl, p: permBy.get(k) };
+    if (tempBy.has(k)) return { k: 'temp', slot: lbl, t: tempBy.get(k) };
+    return { k: 'free', slot: lbl };
+  });
+  loose.forEach(t => items.push({ k: 'temp', slot: '', t, loose: true }));
+  const used = permList(z.id).length + tempList(z.id, date).length;
+  return { items, used, total: z.slots.length, free: z.slots.length - used, loose: loose.length };
+}
+
+/* ---------- Dashboard ---------- */
+function countTo(el, to) {
+  const from = Number(el._v ?? 0), tok = el._tok = (el._tok || 0) + 1; el._v = to;
+  if (typeof requestAnimationFrame !== 'function' || from === to || document.hidden) { el.textContent = to; return; }
+  const t0 = performance.now(), dur = 650;
+  const step = now => { if (el._tok !== tok) return; const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); else el.textContent = to; };
+  requestAnimationFrame(step);
+}
+function renderDash() {
+  let T = 0, U = 0, P = 0, M = 0;
+  const enter = enterAnim ? ' enter' : ''; enterAnim = false;
+  $('zoneGrid').innerHTML = db.zones.map(z => {
+    const s = zoneStats(z), cap = capOf(z); T += cap; U += s.used; P += s.perm; M += s.tmp;
+    const base = Math.max(cap, s.used, 1);
+    const sl = buildSlots(z, today()), freeLbls = sl.items.filter(i => i.k === 'free').map(i => i.slot);
+    const pctU = cap > 0 ? s.used / cap : 1, lv = pctU >= 0.9 ? 'full' : pctU >= 0.7 ? 'warn' : 'ok';
+    const free = s.free < 0 ? bdg('b-bad', ico('bell'), `เกินความจุ ${-s.free}`, 'bell-ring')
+      : lv === 'full' ? bdg('b-bad', ico('bell'), s.free <= 0 ? 'เต็ม' : `เกือบเต็ม ว่าง ${s.free}`, 'bell-ring')
+      : lv === 'warn' ? bdg('b-warn', ico('clock'), `ว่าง ${s.free}`) : bdg('b-free', PULSE, `ว่าง ${s.free}`);
+    const freeLine = freeLbls.length ? `${esc(freeLbls.slice(0, 10).join(', '))}${freeLbls.length > 10 ? ` +${freeLbls.length - 10}` : ''}` : 'ไม่มี';
+    return `<div class="card zone-card lv-${lv}${enter} p-4 sm:p-5" role="button" tabindex="0" data-act="open-zone" data-id="${esc(z.id)}" aria-label="ดูรายละเอียดช่องจอด ${esc(z.name)}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex items-start gap-3"><span class="ztile">${ico('park')}</span><div><h3 class="text-lg font-bold leading-tight">${esc(z.name)}</h3>
+          <div class="flex flex-wrap gap-1 mt-1">${isPermZone(z) ? bdg('b-perm', ico('car'), 'รับที่จอดระยะยาว') : z.free ? bdg('b-grey', ico('car'), 'จอดอิสระ (ไม่กำหนดช่อง)') : ''}${s.upcoming ? bdg('b-grey', ico('clock'), `จองล่วงหน้า ${s.upcoming}`) : ''}</div></div></div>
+        ${free}
+      </div>
+      <div class="stack my-4" aria-hidden="true"><i class="bar-perm" style="width:${s.perm / base * 100}%"></i><i class="bar-temp" style="width:${s.tmp / base * 100}%"></i></div>
+      <div class="grid grid-cols-3 text-center gap-2">
+        <div><div class="text-2xl font-bold">${cap}</div><div class="text-xs muted">ความจุ</div></div>
+        <div><div class="text-2xl font-bold">${s.perm}</div><div class="text-xs muted flex items-center justify-center gap-1"><i class="dot" style="background:var(--perm)"></i>ระยะยาว</div></div>
+        <div><div class="text-2xl font-bold">${s.tmp}</div><div class="text-xs muted flex items-center justify-center gap-1"><i class="dot" style="background:var(--amber)"></i>ชั่วคราว</div></div>
+      </div>
+      ${z.free ? `<div class="text-xs muted mt-3"><b>จอดอิสระ</b> (ไม่กำหนดช่อง)${sl.items.length ? ' — ทะเบียน: ' + esc(sl.items.slice(0, 3).map(i => i.t.plate).join(', ')) + (sl.items.length > 3 ? ` +${sl.items.length - 3}` : '') : ' — ยังไม่มีรถจอด'}</div>` : `<div class="text-xs muted mt-3"><b>ช่องว่าง:</b> ${freeLine}${sl.loose ? ` (มีจองชั่วคราวไม่ระบุช่อง ${sl.loose})` : ''}</div>`}
+      <div class="mt-3 text-sm font-semibold flex items-center justify-between" style="color:var(--perm)"><span>ดูรายละเอียดช่องจอด</span><span aria-hidden="true">›</span></div>
+    </div>`;
+  }).join('') || '<p class="muted">ยังไม่มีสถานที่ — เพิ่มได้ที่เมนูตั้งค่า</p>';
+  const free = T - U, pct = T > 0 ? Math.min(1, U / T) : 0;
+  countTo($('sumTotal'), T); countTo($('sumUsed'), U); countTo($('sumFree'), free);
+  $('ringPct').textContent = Math.round(pct * 100) + '%';
+  $('ringArc').setAttribute('stroke', pct >= 0.9 ? 'url(#ringRed)' : pct >= 0.7 ? 'url(#ringGrad)' : 'url(#ringOk)');
+  $('ringArc').style.strokeDashoffset = (339.3 * (1 - pct)).toFixed(1);
+  $('sumSplit').textContent = `ระยะยาว ${P} คัน   ชั่วคราววันนี้ ${M} คัน` + (free < 0 ? `   (เกินความจุ ${-free} ช่อง)` : '');
+  $('todayLabel').textContent = new Date().toLocaleDateString('th-TH', { timeZone: TZ, day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/* ---------- Zone detail modal ---------- */
+let mZone = null, mDate = '', mFilter = 'all', lastFocus = null;
+function openZone(id) {
+  mZone = id; mDate = today(); mFilter = 'all'; lastFocus = document.activeElement;
+  $('mDate').min = today(); $('mDate').value = mDate;
+  $('modal').classList.remove('hidden'); document.body.style.overflow = 'hidden';
+  renderModal(); $('mClose').focus();
+}
+function closeModal() { $('modal').classList.add('hidden'); document.body.style.overflow = ''; mZone = null; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+function slotHtml(it, i = 0) {
+  const no = it.slot ? `ช่อง ${esc(it.slot)}` : 'ไม่ระบุช่อง', st = `style="--i:${Math.min(i, 24)}"`;
+  if (it.k === 'perm') { const p = it.p; return `<div class="slot slot-perm" ${st}>
+    <div class="flex items-center justify-between gap-2"><span class="slot-no">${ico('car')}${no}</span>${bdg('b-perm', '', 'ระยะยาว')}</div>
+    <div class="font-semibold">${esc(p.name)}</div><div class="text-sm muted">${esc(p.plate)}</div>
+    <div class="text-xs muted">รหัส ${esc(p.empId)}</div><div class="text-xs muted">${esc([p.dept, p.division].filter(Boolean).join(' / '))}</div>
+    <div class="text-xs muted mt-auto pt-1">แก้ไขล่าสุด ${fmtTs(p.updatedAt)}</div></div>`; }
+  if (it.k === 'temp') { const t = it.t; return `<div class="slot slot-temp" ${st}>
+    <div class="flex items-center justify-between gap-2"><span class="slot-no">${ico('car')}${no}</span>${bdg('b-temp', ico('clock'), esc(t.kind))}</div>
+    <div class="font-semibold">${esc(t.name)}</div><div class="text-sm muted">${esc(t.plate)}</div>
+    <div class="text-xs muted">เวลา ${esc(t.from)}–${esc(t.to)}</div>${t.note ? `<div class="text-xs muted">${esc(t.note)}</div>` : ''}
+    <div class="text-xs muted mt-auto pt-1">แก้ไขล่าสุด ${fmtTs(t.updatedAt)}</div></div>`; }
+  return `<div class="slot slot-free" ${st}><div class="flex items-center justify-between gap-2"><span class="slot-no">${ico('park')}${no}</span>${bdg('b-free', ico('check'), 'ว่าง')}</div><div class="text-sm muted mt-1">พร้อมรับการจอด</div></div>`;
+}
+function carHtml(t, i = 0) {
+  return `<div class="slot slot-temp" style="--i:${Math.min(i, 24)}">
+    <div class="flex items-center justify-between gap-2"><span class="slot-no">${ico('car')}จอดอิสระ</span>${bdg('b-temp', ico('clock'), esc(t.kind || 'ชั่วคราว'))}</div>
+    <div class="font-semibold">${esc(t.name)}</div><div class="text-sm muted">${esc(t.plate)}</div>
+    <div class="text-xs muted">เวลา ${esc(t.from)}–${esc(t.to)}</div>${t.note ? `<div class="text-xs muted">${esc(t.note)}</div>` : ''}
+    <div class="text-xs muted mt-auto pt-1">แก้ไขล่าสุด ${fmtTs(t.updatedAt)}</div></div>`;
+}
+function renderModal() {
+  const z = getZone(mZone); if (!z) return closeModal();
+  const sl = buildSlots(z, mDate), np = sl.items.filter(i => i.k === 'perm').length, nt = sl.items.filter(i => i.k === 'temp').length, unit = z.free ? 'คัน' : 'ช่อง';
+  $('mTitle').textContent = z.name;
+  $('mStats').innerHTML = bdg('b-grey', ico('park'), `ความจุ ${sl.total} ${unit}`) + (z.free ? '' : bdg('b-perm', ico('car'), `ระยะยาว ${np}`)) + bdg('b-temp', ico('car'), `ชั่วคราว ${nt}`) +
+    (sl.free < 0 ? bdg('b-bad', ico('bell'), `เกินความจุ ${-sl.free}`, 'bell-ring') : bdg('b-free', ico('check'), `ว่าง ${sl.free}`));
+  $('mFilters').classList.toggle('hidden', !!z.free);
+  document.querySelectorAll('#mFilters .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.filter === mFilter ? 'true' : 'false'));
+  const grid = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3';
+  const over = sl.free < 0 ? `<p class="text-sm rounded-xl px-3 py-2 mb-3 b-bad">จำนวนรถเกินความจุที่ตั้งไว้ ${-sl.free} คัน ตรวจสอบรายการหรือปรับความจุในเมนูตั้งค่า</p>` : '';
+  const past = mDate !== today() ? `<p class="text-sm muted mb-3">แสดงรายการจองชั่วคราวของวันที่ ${fmtDate(mDate)}${z.free ? '' : ' ร่วมกับผู้ถือที่จอดระยะยาว'}</p>` : '';
+  if (z.free) {   // หน้าตึก 2.2 / โรงไฟฟ้า: จอดอิสระ แสดงเป็นรายการรถ ไม่มีช่อง
+    const pct = sl.total ? Math.round(sl.used / sl.total * 100) : 100;
+    $('mBody').innerHTML = `<div class="rounded-2xl p-4 mb-4" style="background:var(--permsoft)"><div class="flex flex-wrap items-center justify-between gap-2 text-sm"><span class="font-semibold" style="color:var(--permfg)">พื้นที่จอดอิสระ — ไม่กำหนดหมายเลขช่อง</span><span style="color:var(--permfg)">ใช้งาน ${sl.used}/${sl.total} คัน (${pct}%)</span></div><div class="stack mt-3"><i class="bar-temp" style="width:${Math.min(pct, 100)}%"></i></div></div>` + over + past +
+      (sl.items.length ? `<div class="${grid}">${sl.items.map((it, i) => carHtml(it.t, i)).join('')}</div>` : '<p class="muted text-center py-10">ยังไม่มีรถจอดในพื้นที่นี้ในวันที่เลือก</p>');
+    return;
+  }
+  const shown = sl.items.filter(i => mFilter === 'all' || i.k === mFilter);
+  $('mBody').innerHTML = over +
+    (sl.loose ? `<p class="text-sm rounded-xl px-3 py-2 mb-3 b-temp">มีการจองชั่วคราวที่ยังไม่ระบุหมายเลขช่อง ${sl.loose} คัน (นับหักจากช่องว่างแล้ว) ช่องว่างที่แสดงอาจถูกใช้โดยรถกลุ่มนี้</p>` : '') + past +
+    (shown.length ? `<div class="${grid}">${shown.map((it, i) => slotHtml(it, i)).join('')}</div>` : '<p class="muted text-center py-8">ไม่มีรายการในตัวกรองนี้</p>');
+}
+
+/* ---------- Booking form (unified, create + edit) ---------- */
+let bookType = 'temp', editFrom = null;
+function backAfterEdit() { const t = editFrom; editFrom = null; if (t && t !== 'book') showTab(t); }
+function zoneOptions(list, selected, allLabel) {
+  return (allLabel ? `<option value="">${allLabel}</option>` : '') + list.map(z => `<option value="${esc(z.id)}" ${z.id === selected ? 'selected' : ''}>${esc(z.name)}</option>`).join('');
+}
+function fillZoneSelect(sel) {
+  const cur = sel || $('bZone').value;
+  const list = bookType === 'perm' ? db.zones.filter(isPermZone) : db.zones;
+  $('bZone').innerHTML = zoneOptions(list, cur);
+  if (!$('bZone').value && list[0]) $('bZone').value = list[0].id;
+}
+function fillSlotSelects(keep) {
+  const z = getZone($('bZone').value), exceptId = $('bId').value;
+  if (bookType === 'perm') {
+    const cur = keep != null ? keep : $('bSlot').value;
+    const list = z ? freeSlotsFor(z, 'perm', '', exceptId) : [];
+    $('bSlot').innerHTML = list.length
+      ? '<option value="" disabled selected>เลือกหมายเลขช่อง</option>' + list.map(s => `<option value="${esc(s)}">ช่อง ${esc(s)}</option>`).join('')
+      : '<option value="" disabled selected>ไม่มีช่องว่างในสถานที่นี้</option>';
+    const m = list.find(s => normSlot(s) === normSlot(cur)); if (m) $('bSlot').value = m;
+    $('bSlotHint').textContent = z ? `${z.name}: ช่องว่างสำหรับที่จอดระยะยาว ${list.length} จาก ${z.slots.length} ช่อง` + (list.length ? ` (${list.slice(0, 12).join(', ')}${list.length > 12 ? ' ...' : ''})` : '') : '';
+  } else {
+    const date = $('bDate').value || today(), fz = !!(z && z.free);
+    // หน้าตึก 2.2 / โรงไฟฟ้า: จอดอิสระ ไม่ต้องเลือกหมายเลขช่อง
+    $('bTSlotWrap').classList.toggle('hidden', fz); $('bTSlot').disabled = fz;
+    if (fz) {
+      const used = tempList(z.id, date).filter(t => t.id !== exceptId).length;
+      $('bTSlot').innerHTML = '<option value="" selected></option>';
+      $('bSlotHint').textContent = `${z.name} เป็นพื้นที่จอดอิสระ ไม่กำหนดหมายเลขช่อง — วันที่ ${fmtDate(date)} มีรถ ${used}/${capOf(z)} คัน`; return;
+    }
+    const cur = keep != null ? keep : $('bTSlot').value;
+    const list = z ? freeSlotsFor(z, 'temp', date, exceptId) : [];
+    $('bTSlot').innerHTML = '<option value="">ไม่ระบุช่อง</option>' + list.map(s => `<option value="${esc(s)}">ช่อง ${esc(s)}</option>`).join('');
+    const m = list.find(s => normSlot(s) === normSlot(cur)); if (m) $('bTSlot').value = m;
+    $('bSlotHint').textContent = z ? `${z.name}: ช่องที่ยังว่างวันที่ ${fmtDate(date)} มี ${list.length} จาก ${z.slots.length} ช่อง` : '';
+  }
+}
+function setType(t) {
+  bookType = t;
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.type === t ? 'true' : 'false'));
+  const perm = t === 'perm', editing = !!$('bId').value;
+  document.querySelectorAll('.g-temp').forEach(g => { g.classList.toggle('hidden', perm); g.querySelectorAll('input,select').forEach(i => i.disabled = perm); });
+  document.querySelectorAll('.g-perm').forEach(g => { g.classList.toggle('hidden', !perm); g.querySelectorAll('input,select').forEach(i => i.disabled = !perm); });
+  $('bEmp').required = perm; $('bSlot').required = perm;
+  ['bDate', 'bFrom', 'bTo'].forEach(i => $(i).required = !perm);
+  $('bNameLbl').textContent = perm ? 'ชื่อ-นามสกุล พนักงาน *' : 'ชื่อ-นามสกุล / บริษัท *';
+  $('bTitle').textContent = editing ? (perm ? 'แก้ไขที่จอดระยะยาว' : 'แก้ไขการจองชั่วคราว') : (perm ? 'ลงทะเบียนที่จอดระยะยาว' : 'บันทึกการจองชั่วคราว');
+  $('bSubmit').textContent = editing ? 'บันทึกการแก้ไข' : (perm ? 'ลงทะเบียน' : 'บันทึกการจอง');
+  $('bZoneHint').classList.toggle('hidden', !perm);
+  $('listTemp').classList.toggle('hidden', perm); $('permHint').classList.toggle('hidden', !perm);
+  fillZoneSelect(); fillSlotSelects(); clearFlash();
+}
+function resetBookForm() {
+  $('bookForm').reset(); $('bId').value = ''; $('bCancel').classList.add('hidden');
+  $('bFrom').value = '08:00'; $('bTo').value = '17:00'; $('bDate').min = today(); setType(bookType);
+}
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { if ($('bId').value) { resetBookForm(); editFrom = null; } setType(b.dataset.type); }));
+$('bCancel').addEventListener('click', () => { resetBookForm(); clearFlash(); backAfterEdit(); });
+$('bZone').addEventListener('change', () => fillSlotSelects());
+$('bDate').addEventListener('change', () => fillSlotSelects());
+
+function submitTemp() {
+  const id = $('bId').value, old = id ? db.temp.find(t => t.id === id) : null, zn = getZone($('bZone').value);
+  const it = { id: id || uid(), name: $('bName').value.trim(), plate: $('bPlate').value.trim(), zone: $('bZone').value, slot: isFree(zn) ? '' : $('bTSlot').value,
+    date: $('bDate').value, from: $('bFrom').value, to: $('bTo').value, kind: $('bKind').value, note: $('bNote').value.trim(), cancelled: old ? old.cancelled : false };
+  if (!it.name || !it.plate || !it.zone || !it.date) return flash('กรุณากรอกข้อมูลที่มี * ให้ครบ');
+  if (it.date < today() && (!old || old.date !== it.date)) return flash('เลือกวันที่ย้อนหลังไม่ได้ — โปรดเลือกวันนี้หรือวันถัดไป');
+  if (it.to <= it.from) return flash('เวลาออกต้องมากกว่าเวลาเข้า');
+  if ((!old || old.date !== it.date || old.to !== it.to) && isEnded(it.date, it.to)) return flash('เวลาออกผ่านไปแล้ว รายการจะหมดอายุทันที — เลือกเวลาออกที่ยังไม่ถึง หรือเลือกวันอื่น');
+  const live = !it.cancelled && !isEnded(it.date, it.to);
+  if (live) {
+    const dup = db.temp.find(t => t.id !== it.id && t.date === it.date && normPlate(t.plate) === normPlate(it.plate) && isLive(t));
+    if (dup) return flash(`ทะเบียน ${it.plate} มีการจองวันที่ ${fmtDate(it.date)} แล้ว (${zoneName(dup.zone)})`);
+    const z = getZone(it.zone), cap = capOf(z), used = permList(z.id).length + tempList(z.id, it.date).filter(t => t.id !== it.id).length;
+    if (used >= cap) return flash(`${z.name} เต็มแล้วสำหรับวันที่ ${fmtDate(it.date)} (${used}/${cap}) — เลือกสถานที่อื่นหรือวันอื่น`);
+    if (it.slot && !freeSlotsFor(z, 'temp', it.date, it.id).some(s => normSlot(s) === normSlot(it.slot))) return flash(`ช่อง ${it.slot} ไม่ว่างในวันที่ ${fmtDate(it.date)} — เลือกช่องอื่น`);
+  }
+  if (old) { it.createdAt = old.createdAt; it.updatedAt = old.updatedAt; it.log = old.log; touch(it, 'แก้ไขข้อมูล'); db.temp[db.temp.indexOf(old)] = it; }
+  else { stamp(it, 'สร้างรายการจอง'); db.temp.push(it); }
+  save(); renderAll();
+  const keepZone = it.zone; resetBookForm(); $('bZone').value = keepZone; fillSlotSelects(); flash(old ? 'บันทึกการแก้ไขเรียบร้อย' : 'บันทึกการจองเรียบร้อย', true); toast(old ? 'บันทึกการแก้ไขแล้ว' : 'บันทึกการจองแล้ว'); if (old) backAfterEdit();
+}
+function submitPerm() {
+  const id = $('bId').value, old = id ? db.permanent.find(p => p.id === id) : null;
+  const rec = { id: id || uid(), name: $('bName').value.trim(), empId: $('bEmp').value.trim(), plate: $('bPlate').value.trim(),
+    dept: $('bDept').value.trim(), division: $('bDiv').value.trim(), zone: $('bZone').value, slot: $('bSlot').value, active: old ? old.active : true };
+  if (!rec.name || !rec.empId || !rec.plate || !rec.zone || !rec.slot) return flash('กรุณากรอกข้อมูลที่มี * ให้ครบ และเลือกหมายเลขช่องจอด');
+  const z = getZone(rec.zone);
+  if (!isPermZone(z)) return flash('ที่จอดระยะยาวเลือกได้เฉพาะ PILOT PLANT และ บ่อบำบัดน้ำเสีย');
+  if (!hasSlot(z, rec.slot)) return flash(`ไม่มีช่อง ${rec.slot} ใน ${z.name}`);
+  if (rec.active) {
+    const clash = db.permanent.find(p => p.id !== rec.id && p.active && p.zone === rec.zone && normSlot(p.slot) === normSlot(rec.slot));
+    if (clash) return flash(`ช่อง ${rec.slot} ใน ${z.name} ถูกใช้โดย ${clash.name} อยู่แล้ว`);
+    const tclash = db.temp.find(t => t.zone === rec.zone && t.slot && normSlot(t.slot) === normSlot(rec.slot) && isLive(t));
+    if (tclash) return flash(`ช่อง ${rec.slot} มีการจองชั่วคราวของ ${tclash.name} (${fmtDate(tclash.date)}) — ยกเลิกรายการนั้นก่อน หรือเลือกช่องอื่น`);
+    if (db.permanent.some(p => p.id !== rec.id && p.active && normSlot(p.empId) === normSlot(rec.empId))) return flash('รหัสพนักงานนี้มีที่จอดระยะยาวอยู่แล้ว');
+  }
+  if (old) { rec.createdAt = old.createdAt; rec.updatedAt = old.updatedAt; rec.log = old.log; touch(rec, 'แก้ไขข้อมูล'); db.permanent[db.permanent.indexOf(old)] = rec; }
+  else { stamp(rec, 'ลงทะเบียนที่จอดระยะยาว'); db.permanent.push(rec); }
+  save(); renderAll(); resetBookForm(); flash('บันทึกข้อมูลที่จอดระยะยาวเรียบร้อย', true); toast(old ? 'บันทึกการแก้ไขแล้ว' : 'บันทึกข้อมูลแล้ว'); if (old) backAfterEdit();
+}
+$('bookForm').addEventListener('submit', e => { e.preventDefault(); clearFlash(); bookType === 'perm' ? submitPerm() : submitTemp(); });
+
+/* ---------- Lists ---------- */
+function tsCell(r, act) { return `<div class="whitespace-nowrap">${fmtTs(r.updatedAt)}</div><button class="link-btn !px-0" data-act="${act}" data-id="${esc(r.id)}">ประวัติ</button>`; }
+function renderTemp() {
+  const q = $('lSearch').value.trim().toLowerCase(), fz = $('lZone').value, fs = $('lStatus').value, fd = $('lDate').value;
+  // ลำดับแถว: จอดวันนี้ → จองล่วงหน้า → หมดเวลา/เลยกำหนด (ขีดฆ่า) → ยกเลิก (อยู่ล่างสุดเสมอ ไม่ปะปนกัน)
+  const RANK = { today: 1, upcoming: 2, expired: 3, cancelled: 4 };
+  const rows = db.temp.map(t => ({ t, st: tempStatus(t) }))
+    .filter(({ t, st }) => (!fz || t.zone === fz) && (!fd || t.date === fd) && (!fs || st === fs) && (!q || (t.name + ' ' + t.plate + ' ' + (t.note || '')).toLowerCase().includes(q)))
+    .sort((a, b) => {
+      if (RANK[a.st] !== RANK[b.st]) return RANK[a.st] - RANK[b.st];
+      const ka = a.t.date + ' ' + (a.t.from || ''), kb = b.t.date + ' ' + (b.t.from || '');
+      return a.st === 'expired' || a.st === 'cancelled' ? kb.localeCompare(ka) : ka.localeCompare(kb);   // ที่ยังจอดอยู่: ใกล้ถึงก่อน / ที่เลยกำหนด: ล่าสุดก่อน
+    });
+  $('lNote').textContent = fd ? `แสดงเฉพาะรายการจองชั่วคราวของวันที่ ${fmtDate(fd)}` : ''; $('lNote').classList.toggle('hidden', !fd);
+  $('tCount').textContent = `(${rows.length} รายการ)`;
+  $('tempBody').innerHTML = rows.map(({ t, st }) => {
+    const act = `<button class="link-btn" data-act="edit-temp" data-id="${esc(t.id)}">แก้ไข</button>` +
+      (st === 'today' || st === 'upcoming' ? `<button class="link-btn" data-act="cancel-temp" data-id="${esc(t.id)}">ยกเลิกการจอง</button>` : '') +
+      `<button class="link-btn link-danger" data-act="del-temp" data-id="${esc(t.id)}">ลบ</button>`;
+    return `<tr class="${st === 'expired' ? 'expired' : ''}">
+      <td class="whitespace-nowrap">${fmtDate(t.date)}</td><td class="whitespace-nowrap">${esc(t.from)}–${esc(t.to)}</td>
+      <td><div class="font-semibold">${esc(t.name)}</div><div class="text-xs muted">${esc(t.kind)}${t.note ? ' / ' + esc(t.note) : ''}</div></td>
+      <td class="whitespace-nowrap">${esc(t.plate)}</td><td>${esc(zoneName(t.zone))}</td><td class="whitespace-nowrap">${isFree(getZone(t.zone)) ? '<span class="muted">จอดอิสระ</span>' : t.slot ? esc(t.slot) : '<span class="muted">ไม่ระบุ</span>'}</td>
+      <td class="keep">${bdg(ST_CLS[st], ico(ST_ICO[st]), ST_TXT[st], st === 'today' ? 'bell-ring' : '')}</td><td class="keep text-xs">${tsCell(t, 'hist-temp')}</td><td class="keep whitespace-nowrap">${act}</td></tr>`;
+  }).join('') || '<tr><td colspan="9" class="text-center muted" style="padding:2rem">ยังไม่มีรายการ — กรอกฟอร์มด้านบนเพื่อบันทึกการจองแรก</td></tr>';
+}
+function renderPerm() {
+  const q = $('pSearch').value.trim().toLowerCase(), fz = $('pZoneFilter').value;
+  const rows = db.permanent.filter(p => (!fz || p.zone === fz) && (!q || (p.name + ' ' + p.empId + ' ' + p.plate + ' ' + p.slot).toLowerCase().includes(q)))
+    .sort((a, b) => zoneName(a.zone).localeCompare(zoneName(b.zone)) || String(a.slot).localeCompare(String(b.slot), undefined, { numeric: true }));
+  $('pCount').textContent = `(${rows.length} รายการ)`;
+  $('permBody').innerHTML = rows.map(p => {
+    const bad = !isPermZone(getZone(p.zone));
+    return `<tr class="${p.active ? '' : 'expired'}">
+    <td><div class="font-semibold">${esc(p.name)}</div></td><td class="whitespace-nowrap">${esc(p.empId)}</td><td class="whitespace-nowrap">${esc(p.plate)}</td>
+    <td>${esc(p.dept)}</td><td>${esc(p.division)}</td>
+    <td>${esc(zoneName(p.zone))}${bad ? ' ' + bdg('b-bad', ico('bell'), 'สถานที่ไม่เข้าเงื่อนไข') : ''}</td><td class="whitespace-nowrap font-semibold">${esc(p.slot)}</td>
+    <td class="keep">${p.active ? bdg('b-free', PULSE, 'ใช้งานอยู่') : bdg('b-grey', ico('slash'), 'ลาออก/เกษียณ')}</td>
+    <td class="keep text-xs">${tsCell(p, 'hist-perm')}</td>
+    <td class="keep whitespace-nowrap"><button class="link-btn" data-act="edit-perm" data-id="${esc(p.id)}">แก้ไข</button>
+      <button class="link-btn" data-act="toggle-perm" data-id="${esc(p.id)}">${p.active ? 'ลาออก/เกษียณ' : 'ใช้งานอีกครั้ง'}</button>
+      <button class="link-btn link-danger" data-act="del-perm" data-id="${esc(p.id)}">ลบ</button></td></tr>`;
+  }).join('') || '<tr><td colspan="10" class="text-center muted" style="padding:2rem">ยังไม่มีข้อมูล — ลงทะเบียนด้วยฟอร์มด้านบน หรือนำเข้าไฟล์ Excel / CSV</td></tr>';
+}
+function renderSettings() {
+  $('zoneEdit').innerHTML = db.zones.map(z => `<div class="rounded-2xl p-3" style="background:var(--soft)" data-zone="${esc(z.id)}">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div><label class="lbl">ชื่อสถานที่</label><input class="field" value="${esc(z.name)}" data-f="name" maxlength="60"></div>
+      <div class="sm:col-span-2">${z.free
+        ? `<label class="lbl">ความจุ (คัน) — พื้นที่จอดอิสระ ไม่กำหนดช่อง</label><input class="field" type="number" min="0" max="9999" value="${z.capacity}" data-f="cap">`
+        : `<label class="lbl">หมายเลขช่องจอด (เช่น 1-45 หรือ 1-10, 15, 20)</label><input class="field" value="${esc(slotsText(z.slots))}" data-f="slots">`}</div>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-2 mt-2">
+      <span class="text-sm muted">ความจุ ${capOf(z)} ${z.free ? 'คัน / จอดอิสระ' : 'ช่อง'}${isPermZone(z) ? ' / รับที่จอดระยะยาว' : ''} / แก้ไขล่าสุด ${fmtTs(z.updatedAt)}</span>
+      <span class="flex gap-2"><button class="btn btn-sec !min-h-0 !py-2" data-act="hist-zone" data-id="${esc(z.id)}">ประวัติ</button>
+      <button class="btn btn-sec !min-h-0 !py-2" data-act="save-zone" data-id="${esc(z.id)}">บันทึก</button>
+      <button class="btn btn-sec btn-danger !min-h-0 !py-2" data-act="del-zone" data-id="${esc(z.id)}">ลบ</button></span>
+    </div></div>`).join('');
+}
+
+/* ---------- Trash (ถังขยะ 30 วัน) ---------- */
+const TYPE_TXT = { perm: 'ที่จอดระยะยาว', temp: 'จองชั่วคราว', zone: 'สถานที่' };
+const TYPE_CLS = { perm: 'b-perm', temp: 'b-temp', zone: 'b-grey' };
+function fmtCountdown(ms) {
+  if (ms <= 0) return 'หมดเวลา';
+  const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60, p = n => String(n).padStart(2, '0');
+  return `${d} วัน ${p(h)}:${p(m)}:${p(ss)}`;
+}
+function trashLabel(x) {
+  const it = x.item;
+  if (x.type === 'perm') return `<div class="font-semibold">${esc(it.name)}</div><div class="text-xs muted">รหัส ${esc(it.empId)} / ${esc(it.plate)} / ${esc(x.zoneName || '')} ช่อง ${esc(it.slot)}</div>`;
+  if (x.type === 'temp') return `<div class="font-semibold">${esc(it.name)}</div><div class="text-xs muted">${esc(it.plate)} / ${esc(x.zoneName || '')} / ${fmtDate(it.date)} ${esc(it.from)}–${esc(it.to)}</div>`;
+  return `<div class="font-semibold">${esc(it.name)}</div><div class="text-xs muted">ช่องจอด ${esc(slotsText(it.slots || []))}</div>`;
+}
+function renderTrash() {
+  purgeTrash();
+  const rows = db.trash.slice().sort((a, b) => b.deletedAt - a.deletedAt);
+  $('trashCount').textContent = `(${rows.length} รายการ)`;
+  const n = rows.length; ['trashBadge', 'trashBadge2'].forEach(i => { $(i).textContent = n; $(i).classList.toggle('hidden', !n); });
+  $('trashBody').innerHTML = rows.map(x => {
+    const exp = x.deletedAt + TRASH_MS, left = exp - Date.now();
+    return `<tr><td><span class="badge ${TYPE_CLS[x.type]}">${TYPE_TXT[x.type]}</span></td><td>${trashLabel(x)}</td>
+      <td class="whitespace-nowrap">${fmtTs(x.deletedAt)}</td>
+      <td><span class="cd badge ${left < 3 * 86400000 ? 'b-bad bell-ring' : left < 10 * 86400000 ? 'b-warn' : 'b-grey'}" data-exp="${exp}">${ico(left < 3 * 86400000 ? 'bell' : 'clock')}<span class="cdt">${fmtCountdown(left)}</span></span></td>
+      <td class="whitespace-nowrap"><button class="btn btn-pri !min-h-0 !py-1.5 !px-3 text-sm" data-act="restore" data-id="${esc(x.id)}">กู้คืนข้อมูล</button>
+        <button class="link-btn link-danger" data-act="purge" data-id="${esc(x.id)}">ลบถาวร</button></td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="text-center muted" style="padding:2rem">ถังขยะว่างเปล่า — รายการที่ลบจะมาอยู่ที่นี่ 30 วัน</td></tr>';
+}
+function tickCountdowns() {
+  let expired = false;
+  document.querySelectorAll('.cd').forEach(el => { const left = Number(el.dataset.exp) - Date.now(), t = el.querySelector('.cdt'); if (t) t.textContent = fmtCountdown(left); if (left <= 0) expired = true; });
+  if (expired) { purgeTrash(); save(); renderTrash(); }
+}
+function toTrash(type, item, zoneNm) { db.trash.push({ id: uid(), type, item: JSON.parse(JSON.stringify(item)), deletedAt: Date.now(), zoneName: zoneNm || '' }); }
+async function restoreTrash(id) {
+  const x = db.trash.find(t => t.id === id); if (!x) return;
+  const it = JSON.parse(JSON.stringify(x.item));
+  if (x.type === 'zone') {
+    if (db.zones.some(z => z.name.toLowerCase() === it.name.toLowerCase())) return toast('มีสถานที่ชื่อเดียวกันอยู่แล้ว — เปลี่ยนชื่อสถานที่เดิมก่อนกู้คืน');
+    touch(it, 'กู้คืนจากถังขยะ'); db.zones.push(it);
+  } else {
+    const z = getZone(it.zone); if (!z) return toast('ไม่พบสถานที่เดิมของรายการนี้ — กู้คืนสถานที่จากถังขยะก่อน');
+    if (x.type === 'perm') {
+      if (!isPermZone(z)) return toast('สถานที่นี้ไม่รับที่จอดระยะยาวแล้ว — กู้คืนไม่ได้');
+      if (it.active) {
+        const c = db.permanent.find(p => p.active && p.zone === it.zone && normSlot(p.slot) === normSlot(it.slot)); if (c) return toast(`ช่อง ${it.slot} ถูกใช้โดย ${c.name} แล้ว — ย้ายผู้ใช้ช่องนั้นก่อนกู้คืน`);
+        if (db.permanent.some(p => p.active && normSlot(p.empId) === normSlot(it.empId))) return toast('รหัสพนักงานนี้มีที่จอดระยะยาวอยู่แล้ว');
+      }
+      if (!hasSlot(z, it.slot)) { z.slots.push(it.slot); z.capacity = z.slots.length; touch(z, `เพิ่มช่อง ${it.slot} จากการกู้คืนรายการ`); }
+      touch(it, 'กู้คืนจากถังขยะ'); db.permanent.push(it);
+    } else {
+      if (it.slot && (!hasSlot(z, it.slot) || (isLive(it) && !freeSlotsFor(z, 'temp', it.date).some(s => normSlot(s) === normSlot(it.slot))))) it.slot = '';
+      touch(it, 'กู้คืนจากถังขยะ'); db.temp.push(it);
+    }
+  }
+  db.trash = db.trash.filter(t => t.id !== id); save(); renderAll(); toast('กู้คืนข้อมูลเรียบร้อย');
+}
+
+function renderAll() {
+  renderDash();
+  const k1 = $('lZone').value, k2 = $('pZoneFilter').value;
+  $('lZone').innerHTML = zoneOptions(db.zones, k1, 'ทุกสถานที่');
+  $('pZoneFilter').innerHTML = zoneOptions(db.zones.filter(isPermZone), k2, 'ทุกสถานที่');
+  fillZoneSelect(); fillSlotSelects(); renderTemp(); renderPerm(); renderSettings(); renderTrash(); if (mZone) renderModal();
+}
+function refreshLight() { renderDash(); renderTemp(); fillSlotSelects(); renderTrash(); if (mZone) renderModal(); }
+
+/* ---------- Tabs, clock, scroll-to-top ---------- */
+let activeTab = 'dash';
+function showTab(name) {
+  activeTab = name;
+  ['dash', 'book', 'set', 'trash'].forEach(n => $('tab-' + n).classList.toggle('hidden', n !== name));
+  document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name ? 'true' : 'false'));
+  try { sessionStorage.setItem('itc2_tab', name); } catch (e) {}
+  if (name === 'trash') renderTrash();
+  if (name === 'dash') { enterAnim = true; renderDash(); }
+  window.scrollTo({ top: 0 });
+}
+function tick() {
+  const n = new Date();
+  $('clockDate').textContent = n.toLocaleDateString('th-TH', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('clockTime').textContent = n.toLocaleTimeString('th-TH', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }) + ' น.';
+  if (!$('bId').value) $('bDate').min = today();
+}
+let lastDay = today();
+function refreshStatus() { renderDash(); renderTemp(); if (mZone) renderModal(); }
+setInterval(() => { tick(); if (today() !== lastDay) { lastDay = today(); refreshLight(); } else refreshStatus(); }, 10000);   // ตรวจเวลาออกทุก 10 วินาที ขีดฆ่าและตัดออกจากความจุทันที
+setInterval(() => { if (activeTab === 'trash') tickCountdowns(); }, 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); refreshLight(); } });
+window.addEventListener('scroll', () => $('toTop').classList.toggle('hidden', window.scrollY < 300), { passive: true });
+$('toTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+/* ---------- CSV / Excel ---------- */
+function parseCSV(text) {
+  const rows = []; let row = [], cur = '', q = false; text = text.replace(/^\uFEFF/, '');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); cur = ''; if (row.some(x => x.trim() !== '')) rows.push(row); row = []; }
+    else cur += c;
+  }
+  row.push(cur); if (row.some(x => x.trim() !== '')) rows.push(row); return rows;
+}
+const csvCell = v => { v = String(v ?? ''); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+function download(name, content, type) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type })); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+const toCSV = lines => '\uFEFF' + lines.map(r => r.map(csvCell).join(',')).join('\r\n');
+$('btnExportPerm').addEventListener('click', () => download('long-term-parking.csv', toCSV([['ชื่อ-นามสกุล', 'รหัสพนักงาน', 'ทะเบียนรถ', 'แผนก', 'ฝ่าย', 'สถานที่', 'หมายเลขช่องจอด', 'สถานะ', 'แก้ไขล่าสุด']]
+  .concat(db.permanent.map(p => [p.name, p.empId, p.plate, p.dept, p.division, zoneName(p.zone), p.slot, p.active ? 'ใช้งานอยู่' : 'ลาออก/เกษียณ', fmtTs(p.updatedAt)]))), 'text/csv;charset=utf-8'));
+$('btnExportTemp').addEventListener('click', () => download('temporary-parking.csv', toCSV([['วันที่เข้าจอด', 'เวลาเข้า', 'เวลาออก', 'ชื่อ/บริษัท', 'ทะเบียนรถ', 'สถานที่', 'หมายเลขช่อง', 'ประเภท', 'หมายเหตุ', 'สถานะ', 'แก้ไขล่าสุด']]
+  .concat(db.temp.map(t => [t.date, t.from, t.to, t.name, t.plate, zoneName(t.zone), t.slot, t.kind, t.note, ST_TXT[tempStatus(t)], fmtTs(t.updatedAt)]))), 'text/csv;charset=utf-8'));
+
+/* นำเข้า Master Data จาก Excel/CSV: ทำบนสำเนาก่อน แสดงสรุป แล้วค่อยยืนยัน */
+const FIELD_RE = [['plate', /ทะเบียน|plate/i], ['emp', /รหัส|emp/i], ['dept', /แผนก|dept/i], ['div', /ฝ่าย|div/i], ['zone', /สถานที่|โซน|zone|location/i], ['slot', /ช่อง|slot|หมายเลข/i], ['name', /ชื่อ|name/i]];
+function mapHeader(row) {
+  const map = {};
+  row.forEach((h, i) => { const t = String(h ?? '').trim(); if (!t) return; for (const [f, re] of FIELD_RE) { if (map[f] == null && re.test(t)) { map[f] = i; break; } } });
+  return map;
+}
+function importInto(work, sheets) {
+  const st = { added: 0, updated: 0, newSlots: 0, skipped: [], sheets: [] };
+  const wZone = txt => {
+    const t = String(txt || '').trim().toLowerCase(); if (!t) return null;
+    return work.zones.find(z => z.name.toLowerCase() === t) || work.zones.find(z => t.includes(z.name.toLowerCase()) || z.name.toLowerCase().includes(t)) || null;
+  };
+  sheets.forEach(sh => {
+    let hi = -1, map = null;
+    for (let i = 0; i < Math.min(sh.rows.length, 15); i++) { const m = mapHeader(sh.rows[i] || []); if (m.name != null && m.plate != null && Object.keys(m).length >= 3) { hi = i; map = m; break; } }
+    if (hi < 0) { st.sheets.push(`${sh.name}: ไม่พบแถวหัวตาราง (ต้องมีอย่างน้อย ชื่อ และ ทะเบียน)`); return; }
+    let cnt = 0;
+    for (let i = hi + 1; i < sh.rows.length; i++) {
+      const r = sh.rows[i] || [], g = f => map[f] != null ? String(r[map[f]] ?? '').trim() : '';
+      const name = g('name'), plate = g('plate'), emp = g('emp'), slot = g('slot');
+      if (!name && !plate && !slot) continue;
+      const where = `${sh.name} แถว ${i + 1}`;
+      const z = (map.zone != null ? wZone(g('zone')) : null) || wZone(sh.name);
+      if (!name || !plate) { st.skipped.push(`${where}: ไม่มีชื่อหรือทะเบียน`); continue; }
+      if (!z) { st.skipped.push(`${where}: ไม่พบสถานที่ (${g('zone') || sh.name})`); continue; }
+      if (!isPermZone(z)) { st.skipped.push(`${where}: ${z.name} ไม่รับที่จอดระยะยาว`); continue; }
+      if (!slot) { st.skipped.push(`${where}: ไม่มีหมายเลขช่อง`); continue; }
+      const ex = work.permanent.find(p => emp ? normSlot(p.empId) === normSlot(emp) : normPlate(p.plate) === normPlate(plate));
+      const clash = work.permanent.find(p => p !== ex && p.active && p.zone === z.id && normSlot(p.slot) === normSlot(slot));
+      if (clash) { st.skipped.push(`${where}: ช่อง ${slot} ถูกใช้โดย ${clash.name}`); continue; }
+      if (!z.slots.some(x => normSlot(x) === normSlot(slot))) { z.slots.push(slot); z.capacity = z.slots.length; st.newSlots++; touch(z, 'เพิ่มหมายเลขช่องจากไฟล์นำเข้า'); }
+      const rec = { id: ex ? ex.id : uid(), name, empId: emp, plate, dept: g('dept'), division: g('div'), zone: z.id, slot, active: ex ? ex.active : true };
+      if (ex) { rec.createdAt = ex.createdAt; rec.updatedAt = ex.updatedAt; rec.log = ex.log; touch(rec, 'อัปเดตจากไฟล์นำเข้า'); work.permanent[work.permanent.indexOf(ex)] = rec; st.updated++; }
+      else { stamp(rec, 'นำเข้าจากไฟล์'); work.permanent.push(rec); st.added++; }
+      cnt++;
+    }
+    st.sheets.push(`${sh.name}: อ่านได้ ${cnt} รายการ`);
+  });
+  return st;
+}
+$('btnImportPerm').addEventListener('click', () => $('permFile').click());
+$('permFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    let sheets; const ext = f.name.toLowerCase().split('.').pop();
+    if (ext === 'csv') sheets = [{ name: f.name.replace(/\.csv$/i, ''), rows: parseCSV(await f.text()) }];
+    else {
+      if (typeof XLSX === 'undefined') return openDialog({ title: 'อ่านไฟล์ Excel ไม่ได้', body: '<p>ยังโหลดตัวอ่าน Excel ไม่สำเร็จ (ต้องต่ออินเทอร์เน็ต) ลองใหม่ หรือ Save As เป็น CSV UTF-8 แล้วนำเข้าแทน</p>', buttons: [{ label: 'ปิด', value: true, cls: 'btn-pri' }] });
+      const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+      sheets = wb.SheetNames.map(n => ({ name: n, rows: XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' }) }));
+    }
+    const work = JSON.parse(JSON.stringify(db)), st = importInto(work, sheets);
+    const skip = st.skipped.length ? `<div class="mt-3"><b>ข้าม ${st.skipped.length} แถว</b><ul class="list-disc pl-5 muted mt-1 max-h-40 overflow-auto">${st.skipped.slice(0, 40).map(x => `<li>${esc(x)}</li>`).join('')}${st.skipped.length > 40 ? '<li>...</li>' : ''}</ul></div>` : '';
+    const body = `<ul class="list-disc pl-5 muted">${st.sheets.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <p class="mt-3">เพิ่มใหม่ <b>${st.added}</b> / อัปเดตรายการเดิม <b>${st.updated}</b>${st.newSlots ? ` / เพิ่มหมายเลขช่องใหม่ <b>${st.newSlots}</b> ช่อง` : ''}</p>${skip}`;
+    if (!st.added && !st.updated) return openDialog({ title: 'ไม่มีข้อมูลที่นำเข้าได้', body, buttons: [{ label: 'ปิด', value: true, cls: 'btn-pri' }] });
+    if (await openDialog({ title: 'สรุปการนำเข้า ' + f.name, body, buttons: [{ label: 'ยกเลิก', value: false }, { label: 'นำเข้าข้อมูล', value: true, cls: 'btn-pri' }] })) {
+      db = work; normalizeDb(); save(); renderAll(); toast(`นำเข้าแล้ว: เพิ่ม ${st.added} อัปเดต ${st.updated}`);
+    }
+  } catch (err) { console.error(err); toast('อ่านไฟล์ไม่สำเร็จ — ตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv'); }
+});
+
+/* ---------- Settings ---------- */
+$('zoneForm').addEventListener('submit', e => {
+  e.preventDefault(); const name = $('zName').value.trim(), slots = parseSlots($('zSlots').value);
+  if (!name || !slots.length) return toast('กรอกชื่อสถานที่และหมายเลขช่องจอด');
+  if (db.zones.some(z => z.name.toLowerCase() === name.toLowerCase())) return toast('มีสถานที่ชื่อนี้อยู่แล้ว');
+  db.zones.push(stamp({ id: uid(), name, slots, capacity: slots.length }, 'สร้างสถานที่')); save(); renderAll(); e.target.reset(); $('zSlots').value = '1-10'; toast('เพิ่มสถานที่แล้ว');
+});
+$('btnBackup').addEventListener('click', () => download(`itc2-parking-backup-${today()}.json`, JSON.stringify(db, null, 2), 'application/json'));
+$('btnRestore').addEventListener('click', () => $('restoreFile').click());
+$('restoreFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!Array.isArray(d.zones) || !Array.isArray(d.permanent) || !Array.isArray(d.temp)) throw 0;
+    if (!await askConfirm('กู้คืนข้อมูลจากไฟล์นี้? ข้อมูลปัจจุบันในเครื่องจะถูกแทนที่', 'กู้คืน', true)) return;
+    db = d; normalizeDb(); save(); renderAll(); toast('กู้คืนข้อมูลแล้ว');
+  } catch (err) { toast('ไฟล์สำรองไม่ถูกต้อง'); }
+});
+$('btnClearTemp').addEventListener('click', async () => {
+  if (!db.temp.length) return toast('ไม่มีรายการจองชั่วคราว');
+  if (await askConfirm(`ย้ายรายการจองชั่วคราวทั้งหมด ${db.temp.length} รายการไปถังขยะ? กู้คืนได้ภายใน 30 วัน`, 'ย้ายไปถังขยะ', true)) {
+    db.temp.forEach(t => toTrash('temp', t, zoneName(t.zone))); db.temp = []; save(); renderAll(); toast('ย้ายไปถังขยะแล้ว');
+  }
+});
+$('btnReset').addEventListener('click', async () => {
+  if (await askConfirm('ล้างข้อมูลทั้งหมดและกลับไปเป็นข้อมูลเริ่มต้นของระบบ? การกระทำนี้ย้อนกลับไม่ได้ และถังขยะจะถูกล้างด้วย (แนะนำให้ดาวน์โหลดไฟล์สำรองก่อน)', 'ล้างข้อมูลทั้งหมด', true, 'ล้างข้อมูลทั้งหมด')) { db = seed(); normalizeDb(); save(); renderAll(); toast('กลับไปเป็นข้อมูลเริ่มต้นแล้ว'); }
+});
+$('btnEmptyTrash').addEventListener('click', async () => {
+  if (!db.trash.length) return toast('ถังขยะว่างอยู่แล้ว');
+  if (await askConfirm(`ลบถาวร ${db.trash.length} รายการในถังขยะ? กู้คืนไม่ได้อีก`, 'ลบถาวร', true)) { db.trash = []; save(); renderAll(); toast('ล้างถังขยะแล้ว'); }
+});
+
+/* ---------- Delegated events ---------- */
+async function handleAct(b) {
+  const id = b.dataset.id, act = b.dataset.act;
+  if (act === 'open-zone') openZone(id);
+  else if (act === 'close-modal') closeModal();
+  else if (act === 'hist-perm') { const r = db.permanent.find(x => x.id === id); if (r) showHistory(r, r.name); }
+  else if (act === 'hist-temp') { const r = db.temp.find(x => x.id === id); if (r) showHistory(r, r.name); }
+  else if (act === 'hist-zone') { const r = getZone(id); if (r) showHistory(r, r.name); }
+  else if (act === 'restore') restoreTrash(id);
+  else if (act === 'clear-ldate') { $('lDate').value = ''; renderTemp(); }
+  else if (act === 'goto-settings') showTab('set');
+  else if (act === 'goto-perm-form') { if ($('bId').value) resetBookForm(); editFrom = null; setType('perm'); showTab('book'); $('bName').focus(); }
+  else if (act === 'purge') { const x = db.trash.find(t => t.id === id); if (x && await askConfirm('ลบรายการนี้ถาวร? กู้คืนไม่ได้อีก', 'ลบถาวร', true)) { db.trash = db.trash.filter(t => t.id !== id); save(); renderAll(); } }
+  else if (act === 'cancel-temp') { const t = db.temp.find(x => x.id === id); if (t && await askConfirm(`ยกเลิกการจองของ ${esc(t.name)}?`, 'ยกเลิกการจอง', true)) { t.cancelled = true; touch(t, 'ยกเลิกการจอง'); save(); renderAll(); } }
+  else if (act === 'del-temp') {
+    const t = db.temp.find(x => x.id === id); if (!t) return;
+    if (await askConfirm(`ย้ายรายการจองของ <b>${esc(t.name)}</b> (${esc(t.plate)}) ไปถังขยะ? กู้คืนได้ภายใน 30 วัน`, 'ย้ายไปถังขยะ', true, 'ลบรายการ')) {
+      toTrash('temp', t, zoneName(t.zone)); db.temp = db.temp.filter(x => x.id !== id); save(); renderAll(); toast('ย้ายไปถังขยะแล้ว — กู้คืนได้ภายใน 30 วัน');
+    }
+  }
+  else if (act === 'del-perm') {
+    const p = db.permanent.find(x => x.id === id); if (!p) return;
+    if (await askConfirm(`ย้าย <b>${esc(p.name)}</b> (ช่อง ${esc(p.slot)}) ไปถังขยะ? ช่องจอดจะว่างทันที และกู้คืนได้ภายใน 30 วัน`, 'ย้ายไปถังขยะ', true, 'ลบรายการ')) {
+      toTrash('perm', p, zoneName(p.zone)); db.permanent = db.permanent.filter(x => x.id !== id); save(); renderAll(); toast('ย้ายไปถังขยะแล้ว — กู้คืนได้ภายใน 30 วัน');
+    }
+  }
+  else if (act === 'edit-perm') {
+    const p = db.permanent.find(x => x.id === id); if (!p) return;
+    bookType = 'perm'; $('bId').value = p.id; setType('perm');
+    $('bName').value = p.name; $('bEmp').value = p.empId; $('bPlate').value = p.plate; $('bDept').value = p.dept; $('bDiv').value = p.division;
+    fillZoneSelect(p.zone); fillSlotSelects(p.slot); $('bCancel').classList.remove('hidden');
+    editFrom = activeTab; showTab('book'); $('bName').focus();
+  }
+  else if (act === 'edit-temp') {
+    const t = db.temp.find(x => x.id === id); if (!t) return;
+    bookType = 'temp'; $('bId').value = t.id; setType('temp');
+    $('bName').value = t.name; $('bPlate').value = t.plate; $('bKind').value = t.kind; $('bDate').min = ''; $('bDate').value = t.date;
+    $('bFrom').value = t.from; $('bTo').value = t.to; $('bNote').value = t.note || '';
+    fillZoneSelect(t.zone); fillSlotSelects(t.slot); $('bCancel').classList.remove('hidden');
+    editFrom = activeTab; showTab('book'); $('bName').focus();
+  }
+  else if (act === 'toggle-perm') {
+    const p = db.permanent.find(x => x.id === id); if (!p) return;
+    if (p.active) { if (!await askConfirm(`บันทึกว่า <b>${esc(p.name)}</b> ลาออก/เกษียณ และคืนช่องจอด ${esc(p.slot)}?`, 'ยืนยัน', false)) return; }
+    else { const c = db.permanent.find(x => x.id !== p.id && x.active && x.zone === p.zone && normSlot(x.slot) === normSlot(p.slot)); if (c) return toast(`ช่อง ${p.slot} ถูกใช้โดย ${c.name} แล้ว`); }
+    p.active = !p.active; touch(p, p.active ? 'กลับมาใช้งานที่จอดระยะยาว' : 'ลาออก/เกษียณ (คืนช่องจอด)'); save(); renderAll();
+  }
+  else if (act === 'save-zone') {
+    const row = b.closest('[data-zone]'), z = getZone(id); if (!z) return;
+    const name = row.querySelector('[data-f=name]').value.trim();
+    if (z.free) {
+      const n = parseInt(row.querySelector('[data-f=cap]').value, 10);
+      if (!name) return toast('ชื่อสถานที่ต้องไม่ว่าง'); if (!(n >= 0 && n <= 9999)) return toast('กรอกความจุเป็นตัวเลข 0-9999');
+      if (db.zones.some(o => o.id !== id && o.name.toLowerCase() === name.toLowerCase())) return toast('มีสถานที่ชื่อนี้อยู่แล้ว');
+      z.name = name; z.capacity = n; touch(z, 'แก้ไขชื่อ/ความจุ'); save(); renderAll(); return toast(`บันทึกสถานที่แล้ว (ความจุ ${n} คัน)`);
+    }
+    const slots = parseSlots(row.querySelector('[data-f=slots]').value);
+    if (!name || !slots.length) return toast('ชื่อสถานที่และหมายเลขช่องจอดต้องไม่ว่าง');
+    if (db.zones.some(o => o.id !== id && o.name.toLowerCase() === name.toLowerCase())) return toast('มีสถานที่ชื่อนี้อยู่แล้ว');
+    const keep = new Set(slots.map(normSlot));
+    const heldP = db.permanent.find(p => p.active && p.zone === id && !keep.has(normSlot(p.slot)));
+    if (heldP) return toast(`ลบช่อง ${heldP.slot} ไม่ได้ — ใช้โดย ${heldP.name} (ที่จอดระยะยาว)`);
+    const heldT = db.temp.find(t => t.zone === id && t.slot && isLive(t) && !keep.has(normSlot(t.slot)));
+    if (heldT) return toast(`ลบช่อง ${heldT.slot} ไม่ได้ — มีการจองชั่วคราวของ ${heldT.name}`);
+    if (isPermZone(z) && !PERM_ZONES.includes(name.toLowerCase()) && db.permanent.some(p => p.active && p.zone === id)) return toast('ยังมีที่จอดระยะยาวในสถานที่นี้ — เปลี่ยนชื่อไม่ได้ เพราะที่จอดระยะยาวใช้ได้เฉพาะ PILOT PLANT และ บ่อบำบัดน้ำเสีย');
+    z.name = name; z.slots = slots; z.capacity = slots.length; touch(z, 'แก้ไขชื่อ/หมายเลขช่อง'); save(); renderAll(); toast('บันทึกสถานที่แล้ว');
+  }
+  else if (act === 'del-zone') {
+    const z = getZone(id); if (!z) return;
+    if (db.permanent.some(p => p.zone === id) || db.temp.some(t => t.zone === id)) return toast('ลบไม่ได้ — ยังมีรายการอ้างอิงสถานที่นี้อยู่ (ย้ายหรือลบรายการก่อน)');
+    if (await askConfirm(`ย้ายสถานที่ <b>${esc(z.name)}</b> ไปถังขยะ? กู้คืนได้ภายใน 30 วัน`, 'ย้ายไปถังขยะ', true, 'ลบสถานที่')) { toTrash('zone', z); db.zones = db.zones.filter(x => x.id !== id); save(); renderAll(); toast('ย้ายไปถังขยะแล้ว'); }
+  }
+}
+document.addEventListener('click', e => {
+  const d = e.target.closest('[data-dlg]'); if (d) return closeDlg(dlgButtons[Number(d.dataset.dlg)].value);
+  if (e.target.closest('[data-dlg-close]')) return closeDlg(false);
+  const b = e.target.closest('[data-act]'); if (b) handleAct(b);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (dlgResolve) return closeDlg(false); if (mZone) return closeModal(); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role=button][data-act]')) { e.preventDefault(); handleAct(e.target); }
+});
+$('mDate').addEventListener('input', e => { mDate = e.target.value && e.target.value >= today() ? e.target.value : today(); renderModal(); });
+document.querySelectorAll('#mFilters .chip').forEach(c => c.addEventListener('click', () => { mFilter = c.dataset.filter; renderModal(); }));
+['lSearch', 'lZone', 'lStatus', 'lDate'].forEach(i => { $(i).addEventListener('input', renderTemp); $(i).addEventListener('change', renderTemp); });
+['pSearch', 'pZoneFilter'].forEach(i => $(i).addEventListener('input', renderPerm));
+document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+/* ---------- Network status chip ---------- */
+function updNet() { const on = navigator.onLine !== false; $('netChip').classList.toggle('off', !on); $('netTxt').textContent = on ? 'ออนไลน์' : 'ออฟไลน์'; }
+window.addEventListener('online', updNet); window.addEventListener('offline', updNet);
+
+/* ---------- Init ---------- */
+load(); save(); renderAll(); setType('temp'); tick(); updNet();
+let startTab = 'dash'; try { startTab = sessionStorage.getItem('itc2_tab') || 'dash'; } catch (e) {}
+showTab(startTab);
+})();
+</script>
+</body>
+</html>
