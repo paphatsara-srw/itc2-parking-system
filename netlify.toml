@@ -1,0 +1,8 @@
+# Netlify: ไม่ต้องมีขั้นตอน build — เสิร์ฟไฟล์ static ได้ทันที
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

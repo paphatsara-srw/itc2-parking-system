@@ -1,0 +1,17 @@
+{
+  "name": "Parking Management & Booking System (ITC2)",
+  "short_name": "Parking ITC2",
+  "description": "ระบบบริหารจัดการและจองที่จอดรถบริษัท",
+  "lang": "th",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF0F3",
+  "theme_color": "#14213D",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

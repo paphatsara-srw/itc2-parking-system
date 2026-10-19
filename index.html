@@ -5,11 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Parking Management & Booking System (ITC2)</title>
 <meta name="theme-color" content="#14213D">
+<!--PWA_START-->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<!--PWA_END-->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Firebase (Firestore) — ต้องโหลดก่อนสคริปต์หลัก -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyD4P7YULqTyFn4D7A_TYPiUg9X0ablviAQ",
+    authDomain: "itc2-parking-system.firebaseapp.com",
+    projectId: "itc2-parking-system",
+    storageBucket: "itc2-parking-system.firebasestorage.app",
+    messagingSenderId: "280376216669",
+    appId: "1:280376216669:web:dfa2385ae970e217b1d1b4",
+    measurementId: "G-0N1VTS4WF1"
+  };
+  // ถ้าโหลด SDK ไม่ได้ (เช่นออฟไลน์/ถูกบล็อก) แอปจะทำงานในโหมดเก็บข้อมูลในเครื่องแทน
+  try { if (window.firebase) { firebase.initializeApp(firebaseConfig); window.fsdb = firebase.firestore(); } } catch (e) { console.warn('Firebase init failed', e); }
+</script>
 <script>
   tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Noto Sans Thai"', 'Sarabun', 'Tahoma', 'system-ui', 'sans-serif'] } } } };
 </script>
@@ -436,7 +457,8 @@
 
 /* ---------- Constants & storage ---------- */
 const LS_KEY = 'itc2_parking_v4', LS_OLD = ['itc2_parking_v3', 'itc2_parking_v2', 'itc2_parking_v1'], TZ = 'Asia/Bangkok';
-const TRASH_MS = 30 * 24 * 3600 * 1000;                      // เก็บในถังขยะ 30 วัน
+const TRASH_MS = 30 * 24 * 3600 * 1000;
+const COLL = 'parkings';                                     // คอลเลกชัน Firestore: 1 เอกสาร = 1 รายการ (zone / perm / temp / trash)                      // เก็บในถังขยะ 30 วัน
 const FREE_ZONES = ['หน้าตึก 2.2', 'โรงไฟฟ้า'];   // พื้นที่จอดอิสระ ไม่กำหนดหมายเลขช่อง
 const PERM_ZONES = ['pilot plant', 'บ่อบำบัดน้ำเสีย'];          // ที่จอดระยะยาวเลือกได้เฉพาะสองสถานที่นี้
 /* ข้อมูลเริ่มต้นจริง (Master Data) — วางข้อมูลที่ได้จากไฟล์ Excel ตรงนี้ รูปแบบ:
@@ -486,9 +508,9 @@ function seed() {
     d.zones.forEach(z => stamp(z, 'ข้อมูลเริ่มต้นของระบบ')); d.permanent.forEach(p => stamp(p, 'ข้อมูลเริ่มต้นของระบบ')); d.temp.forEach(t => stamp(t, 'ข้อมูลเริ่มต้นของระบบ'));
     return d;
   }
-  const Z = (name, slots) => stamp({ id: uid(), name, slots: parseSlots(slots), capacity: parseSlots(slots).length }, 'สร้างสถานที่');
-  const ZF = (name, cap) => stamp({ id: uid(), name, slots: [], free: true, capacity: cap }, 'สร้างสถานที่');   // จอดอิสระ ไม่กำหนดช่อง
-  return { zones: [Z('PILOT PLANT', '1-45'), Z('บ่อบำบัดน้ำเสีย', '1-20'), ZF('หน้าตึก 2.2', 15), ZF('โรงไฟฟ้า', 20)], permanent: [], temp: [], trash: [] };
+  const Z = (name, slots, id) => stamp({ id: id || uid(), name, slots: parseSlots(slots), capacity: parseSlots(slots).length }, 'สร้างสถานที่');
+  const ZF = (name, cap, id) => stamp({ id: id || uid(), name, slots: [], free: true, capacity: cap }, 'สร้างสถานที่');   // จอดอิสระ ไม่กำหนดช่อง
+  return { zones: [Z('PILOT PLANT', '1-45', 'z-pilot-plant'), Z('บ่อบำบัดน้ำเสีย', '1-20', 'z-wastewater'), ZF('หน้าตึก 2.2', 15, 'z-front-2-2'), ZF('โรงไฟฟ้า', 20, 'z-power-plant')], permanent: [], temp: [], trash: [] };
 }
 let db;
 function normalizeDb() {
@@ -511,7 +533,68 @@ function load() {
   if (!db) db = seed();
   normalizeDb();
 }
-function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch (e) { toast('บันทึกลงเบราว์เซอร์ไม่ได้ — โปรดดาวน์โหลดไฟล์สำรอง'); } }
+function localSave() { try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch (e) { toast('บันทึกลงเบราว์เซอร์ไม่ได้ — โปรดดาวน์โหลดไฟล์สำรอง'); } }   // สำเนาในเครื่อง (แคช/สำรอง)
+function save() { localSave(); if (cloud && cloudReady) syncUp(); }
+
+/* ---------- Firestore: ซิงก์สดผ่าน db.collection('parkings').onSnapshot ----------
+   เอกสารละ 1 รายการ: { docKind:'zone'|'perm'|'temp'|'trash', ...ข้อมูลรายการ }  (zone มี ord = ลำดับแสดงผล)
+   โค้ดเดิมยังแก้ไขข้อมูลใน db (ในหน่วยความจำ) แล้วเรียก save() เหมือนเดิม — save() จะเทียบกับสถานะล่าสุดจาก Firestore
+   แล้วส่งเฉพาะรายการที่เพิ่ม/แก้ไข/ลบขึ้นไป ส่วนการเปลี่ยนแปลงจากเครื่องอื่นจะเข้ามาทาง onSnapshot แล้ววาดหน้าจอใหม่ทันที */
+let cloud = null, cloudReady = false, cloudState = 'local', synced = new Map();
+const stable = o => Array.isArray(o) ? '[' + o.map(stable).join(',') + ']' : (o && typeof o === 'object') ? '{' + Object.keys(o).sort().map(k => JSON.stringify(k) + ':' + stable(o[k])).join(',') + '}' : JSON.stringify(o);
+function toDocs() {
+  const m = new Map(), put = (docKind, r, extra) => { const o = JSON.parse(JSON.stringify({ ...r, ...extra, docKind })); m.set(String(o.id), o); };   // JSON round-trip ตัดค่า undefined (Firestore ไม่รับ)
+  db.zones.forEach((z, i) => put('zone', z, { ord: i })); db.permanent.forEach(p => put('perm', p)); db.temp.forEach(t => put('temp', t)); db.trash.forEach(x => put('trash', x));
+  return m;
+}
+function syncUp() {
+  if (!cloud) return;
+  const next = toDocs(), ops = [];
+  next.forEach((v, id) => { const sv = stable(v); if (synced.get(id) !== sv) { ops.push({ id, v }); synced.set(id, sv); } });
+  [...synced.keys()].forEach(id => { if (!next.has(id)) { ops.push({ id, del: true }); synced.delete(id); } });
+  for (let i = 0; i < ops.length; i += 400) {
+    const batch = window.fsdb.batch();
+    ops.slice(i, i + 400).forEach(o => o.del ? batch.delete(cloud.doc(o.id)) : batch.set(cloud.doc(o.id), o.v));
+    batch.commit().catch(err => { console.error(err); toast('ซิงก์ขึ้นระบบกลางไม่สำเร็จ (' + (err.code || 'error') + ')'); });
+  }
+}
+function applyRemote(snap) {
+  const d = { zones: [], permanent: [], temp: [], trash: [] }; synced = new Map();
+  snap.forEach(doc => {
+    const o = doc.data(); synced.set(doc.id, stable(o)); const { docKind, ...rec } = o; if (!rec.id) rec.id = doc.id;   // docKind = ชนิดเอกสาร (ไม่ใช่ฟิลด์ kind ประเภทผู้จอดของรายการ)
+    if (docKind === 'zone') d.zones.push(rec); else if (docKind === 'perm') d.permanent.push(rec); else if (docKind === 'temp') d.temp.push(rec); else if (docKind === 'trash') d.trash.push(rec);
+  });
+  d.zones.sort((a, b) => (a.ord ?? 1e9) - (b.ord ?? 1e9)); d.zones.forEach(z => { delete z.ord; });
+  db = d; normalizeDb(); localSave(); renderFromRemote();
+}
+function renderFromRemote() {   // ไม่ทับช่องที่ผู้ใช้กำลังพิมพ์อยู่ในหน้าตั้งค่า
+  const busy = document.activeElement && $('zoneEdit').contains && $('zoneEdit').contains(document.activeElement);
+  if (busy) { renderDash(); renderTemp(); renderPerm(); renderTrash(); fillSlotSelects(); if (mZone) renderModal(); } else renderAll();
+}
+async function firstEmpty() {   // ฐานข้อมูลกลางยังว่าง: อัปโหลดข้อมูลในเครื่อง หรือเริ่มด้วยค่าเริ่มต้น
+  const has = db.permanent.length + db.temp.length + db.trash.length;
+  if (has) {
+    const up = await openDialog({ title: 'ฐานข้อมูลกลางยังว่างอยู่', body: `<p>พบข้อมูลในเครื่องนี้ ${has} รายการ (ระยะยาว ${db.permanent.length} / ชั่วคราว ${db.temp.length} / ถังขยะ ${db.trash.length}) ต้องการอัปโหลดขึ้นระบบกลางเพื่อใช้ร่วมกันทุกเครื่องหรือไม่?</p><p class="muted mt-2">ถ้าเลือก "เริ่มใหม่" ระบบจะดาวน์โหลดไฟล์สำรองข้อมูลในเครื่องให้ก่อน แล้วเริ่มระบบกลางด้วยค่าเริ่มต้น</p>`,
+      buttons: [{ label: 'เริ่มใหม่', value: false }, { label: 'อัปโหลดข้อมูลเครื่องนี้', value: true, cls: 'btn-pri' }] });
+    if (!up) { download(`itc2-local-backup-${today()}.json`, JSON.stringify(db, null, 2), 'application/json'); db = seed(); normalizeDb(); localSave(); renderAll(); }
+  } else { db = seed(); normalizeDb(); localSave(); renderAll(); }
+  syncUp();
+}
+function startCloud() {
+  if (!window.fsdb) { cloudState = 'local'; updNet(); return; }
+  cloud = window.fsdb.collection(COLL); cloudState = 'connecting'; updNet();
+  cloud.onSnapshot({ includeMetadataChanges: true }, snap => {
+    if (!cloudReady) {
+      if (snap.metadata.fromCache && snap.empty) return;   // ยังไม่ได้ข้อมูลจากเซิร์ฟเวอร์ — รอก่อน (กันเขียนทับข้อมูลกลางตอนออฟไลน์)
+      cloudReady = true; cloudState = snap.metadata.fromCache ? 'offline' : 'live'; updNet();
+      if (snap.empty) firstEmpty(); else applyRemote(snap);
+      return;
+    }
+    cloudState = snap.metadata.fromCache ? 'offline' : 'live'; updNet();
+    if (snap.docChanges().length) applyRemote(snap);       // มีการเพิ่ม/แก้ไข/ลบ จากเครื่องใดก็ตาม → อัปเดตหน้าจอทันที
+  }, err => { console.error(err); cloud = null; cloudReady = false; cloudState = 'error'; updNet(); toast('เชื่อมต่อระบบกลางไม่ได้ (' + (err.code || 'error') + ') — ใช้ข้อมูลในเครื่องแทน'); });
+}
+const cw = () => cloud && cloudReady ? ' (ระบบกลาง: ผู้ใช้ทุกคนจะเห็นการเปลี่ยนแปลงนี้ทันที)' : '';
 
 /* ---------- Helpers ---------- */
 const $ = id => document.getElementById(id);
@@ -1059,7 +1142,7 @@ $('restoreFile').addEventListener('change', async e => {
   try {
     const d = JSON.parse(await f.text());
     if (!Array.isArray(d.zones) || !Array.isArray(d.permanent) || !Array.isArray(d.temp)) throw 0;
-    if (!await askConfirm('กู้คืนข้อมูลจากไฟล์นี้? ข้อมูลปัจจุบันในเครื่องจะถูกแทนที่', 'กู้คืน', true)) return;
+    if (!await askConfirm('กู้คืนข้อมูลจากไฟล์นี้? ข้อมูลปัจจุบันจะถูกแทนที่ทั้งหมด' + cw(), 'กู้คืน', true)) return;
     db = d; normalizeDb(); save(); renderAll(); toast('กู้คืนข้อมูลแล้ว');
   } catch (err) { toast('ไฟล์สำรองไม่ถูกต้อง'); }
 });
@@ -1070,7 +1153,7 @@ $('btnClearTemp').addEventListener('click', async () => {
   }
 });
 $('btnReset').addEventListener('click', async () => {
-  if (await askConfirm('ล้างข้อมูลทั้งหมดและกลับไปเป็นข้อมูลเริ่มต้นของระบบ? การกระทำนี้ย้อนกลับไม่ได้ และถังขยะจะถูกล้างด้วย (แนะนำให้ดาวน์โหลดไฟล์สำรองก่อน)', 'ล้างข้อมูลทั้งหมด', true, 'ล้างข้อมูลทั้งหมด')) { db = seed(); normalizeDb(); save(); renderAll(); toast('กลับไปเป็นข้อมูลเริ่มต้นแล้ว'); }
+  if (await askConfirm('ล้างข้อมูลทั้งหมดและกลับไปเป็นข้อมูลเริ่มต้นของระบบ? การกระทำนี้ย้อนกลับไม่ได้ และถังขยะจะถูกล้างด้วย (แนะนำให้ดาวน์โหลดไฟล์สำรองก่อน)' + cw(), 'ล้างข้อมูลทั้งหมด', true, 'ล้างข้อมูลทั้งหมด')) { db = seed(); normalizeDb(); save(); renderAll(); toast('กลับไปเป็นข้อมูลเริ่มต้นแล้ว'); }
 });
 $('btnEmptyTrash').addEventListener('click', async () => {
   if (!db.trash.length) return toast('ถังขยะว่างอยู่แล้ว');
@@ -1090,17 +1173,17 @@ async function handleAct(b) {
   else if (act === 'goto-settings') showTab('set');
   else if (act === 'goto-perm-form') { if ($('bId').value) resetBookForm(); editFrom = null; setType('perm'); showTab('book'); $('bName').focus(); }
   else if (act === 'purge') { const x = db.trash.find(t => t.id === id); if (x && await askConfirm('ลบรายการนี้ถาวร? กู้คืนไม่ได้อีก', 'ลบถาวร', true)) { db.trash = db.trash.filter(t => t.id !== id); save(); renderAll(); } }
-  else if (act === 'cancel-temp') { const t = db.temp.find(x => x.id === id); if (t && await askConfirm(`ยกเลิกการจองของ ${esc(t.name)}?`, 'ยกเลิกการจอง', true)) { t.cancelled = true; touch(t, 'ยกเลิกการจอง'); save(); renderAll(); } }
+  else if (act === 'cancel-temp') { const t0 = db.temp.find(x => x.id === id); if (t0 && await askConfirm(`ยกเลิกการจองของ ${esc(t0.name)}?`, 'ยกเลิกการจอง', true)) { const t = db.temp.find(x => x.id === id); if (!t) return; t.cancelled = true; touch(t, 'ยกเลิกการจอง'); save(); renderAll(); } }
   else if (act === 'del-temp') {
     const t = db.temp.find(x => x.id === id); if (!t) return;
     if (await askConfirm(`ย้ายรายการจองของ <b>${esc(t.name)}</b> (${esc(t.plate)}) ไปถังขยะ? กู้คืนได้ภายใน 30 วัน`, 'ย้ายไปถังขยะ', true, 'ลบรายการ')) {
-      toTrash('temp', t, zoneName(t.zone)); db.temp = db.temp.filter(x => x.id !== id); save(); renderAll(); toast('ย้ายไปถังขยะแล้ว — กู้คืนได้ภายใน 30 วัน');
+      const tt = db.temp.find(x => x.id === id); if (!tt) return; toTrash('temp', tt, zoneName(tt.zone)); db.temp = db.temp.filter(x => x.id !== id); save(); renderAll(); toast('ย้ายไปถังขยะแล้ว — กู้คืนได้ภายใน 30 วัน');
     }
   }
   else if (act === 'del-perm') {
     const p = db.permanent.find(x => x.id === id); if (!p) return;
     if (await askConfirm(`ย้าย <b>${esc(p.name)}</b> (ช่อง ${esc(p.slot)}) ไปถังขยะ? ช่องจอดจะว่างทันที และกู้คืนได้ภายใน 30 วัน`, 'ย้ายไปถังขยะ', true, 'ลบรายการ')) {
-      toTrash('perm', p, zoneName(p.zone)); db.permanent = db.permanent.filter(x => x.id !== id); save(); renderAll(); toast('ย้ายไปถังขยะแล้ว — กู้คืนได้ภายใน 30 วัน');
+      const pp = db.permanent.find(x => x.id === id); if (!pp) return; toTrash('perm', pp, zoneName(pp.zone)); db.permanent = db.permanent.filter(x => x.id !== id); save(); renderAll(); toast('ย้ายไปถังขยะแล้ว — กู้คืนได้ภายใน 30 วัน');
     }
   }
   else if (act === 'edit-perm') {
@@ -1122,7 +1205,7 @@ async function handleAct(b) {
     const p = db.permanent.find(x => x.id === id); if (!p) return;
     if (p.active) { if (!await askConfirm(`บันทึกว่า <b>${esc(p.name)}</b> ลาออก/เกษียณ และคืนช่องจอด ${esc(p.slot)}?`, 'ยืนยัน', false)) return; }
     else { const c = db.permanent.find(x => x.id !== p.id && x.active && x.zone === p.zone && normSlot(x.slot) === normSlot(p.slot)); if (c) return toast(`ช่อง ${p.slot} ถูกใช้โดย ${c.name} แล้ว`); }
-    p.active = !p.active; touch(p, p.active ? 'กลับมาใช้งานที่จอดระยะยาว' : 'ลาออก/เกษียณ (คืนช่องจอด)'); save(); renderAll();
+    const pf = db.permanent.find(x => x.id === id); if (!pf) return; pf.active = !pf.active; touch(pf, pf.active ? 'กลับมาใช้งานที่จอดระยะยาว' : 'ลาออก/เกษียณ (คืนช่องจอด)'); save(); renderAll();
   }
   else if (act === 'save-zone') {
     const row = b.closest('[data-zone]'), z = getZone(id); if (!z) return;
@@ -1147,7 +1230,7 @@ async function handleAct(b) {
   else if (act === 'del-zone') {
     const z = getZone(id); if (!z) return;
     if (db.permanent.some(p => p.zone === id) || db.temp.some(t => t.zone === id)) return toast('ลบไม่ได้ — ยังมีรายการอ้างอิงสถานที่นี้อยู่ (ย้ายหรือลบรายการก่อน)');
-    if (await askConfirm(`ย้ายสถานที่ <b>${esc(z.name)}</b> ไปถังขยะ? กู้คืนได้ภายใน 30 วัน`, 'ย้ายไปถังขยะ', true, 'ลบสถานที่')) { toTrash('zone', z); db.zones = db.zones.filter(x => x.id !== id); save(); renderAll(); toast('ย้ายไปถังขยะแล้ว'); }
+    if (await askConfirm(`ย้ายสถานที่ <b>${esc(z.name)}</b> ไปถังขยะ? กู้คืนได้ภายใน 30 วัน`, 'ย้ายไปถังขยะ', true, 'ลบสถานที่')) { const zf = getZone(id); if (!zf) return; toTrash('zone', zf); db.zones = db.zones.filter(x => x.id !== id); save(); renderAll(); toast('ย้ายไปถังขยะแล้ว'); }
   }
 }
 document.addEventListener('click', e => {
@@ -1166,34 +1249,22 @@ document.querySelectorAll('#mFilters .chip').forEach(c => c.addEventListener('cl
 document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
 /* ---------- Network status chip ---------- */
-function updNet() { const on = navigator.onLine !== false; $('netChip').classList.toggle('off', !on); $('netTxt').textContent = on ? 'ออนไลน์' : 'ออฟไลน์'; }
+function updNet() {
+  const on = navigator.onLine !== false;
+  const M = { live: ['ซิงก์สดกับระบบกลาง', false], connecting: ['กำลังเชื่อมต่อระบบกลาง…', false], offline: ['ออฟไลน์ — รอซิงก์', true],
+    error: ['เชื่อมต่อระบบกลางไม่ได้ (ใช้ข้อมูลในเครื่อง)', true], local: [on ? 'โหมดในเครื่อง (ไม่ได้เชื่อม Firebase)' : 'ออฟไลน์', !on] };
+  const [t, off] = M[cloudState]; $('netTxt').textContent = t; $('netChip').classList.toggle('off', off);
+}
 window.addEventListener('online', updNet); window.addEventListener('offline', updNet);
 
 /* ---------- Init ---------- */
-load(); save(); renderAll(); setType('temp'); tick(); updNet();
+load(); localSave(); renderAll(); setType('temp'); tick(); updNet(); startCloud();
 let startTab = 'dash'; try { startTab = sessionStorage.getItem('itc2_tab') || 'dash'; } catch (e) {}
 showTab(startTab);
+/*SW_START*/
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+/*SW_END*/
 })();
 </script>
-<!-- 1. ดึง Firebase SDK ผ่าน CDN -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
-  <!-- 2. ตั้งค่า Firebase Config ของคุณ -->
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyD4P7YULqTyFn4D7A_TYPiUg9X0ablviAQ",
-      authDomain: "itc2-parking-system.firebaseapp.com",
-      projectId: "itc2-parking-system",
-      storageBucket: "itc2-parking-system.firebasestorage.app",
-      messagingSenderId: "280376216669",
-      appId: "1:280376216669:web:dfa2385ae970e217b1d1b4",
-      measurementId: "G-0N1VTS4WF1"
-    };
-
-    // เริ่มต้นเชื่อมต่อ Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-  </script>
 </body>
 </html>
