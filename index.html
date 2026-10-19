@@ -1175,5 +1175,25 @@ let startTab = 'dash'; try { startTab = sessionStorage.getItem('itc2_tab') || 'd
 showTab(startTab);
 })();
 </script>
+<!-- 1. ดึง Firebase SDK ผ่าน CDN -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <!-- 2. ตั้งค่า Firebase Config ของคุณ -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD4P7YULqTyFn4D7A_TYPiUg9X0ablviAQ",
+      authDomain: "itc2-parking-system.firebaseapp.com",
+      projectId: "itc2-parking-system",
+      storageBucket: "itc2-parking-system.firebasestorage.app",
+      messagingSenderId: "280376216669",
+      appId: "1:280376216669:web:dfa2385ae970e217b1d1b4",
+      measurementId: "G-0N1VTS4WF1"
+    };
+
+    // เริ่มต้นเชื่อมต่อ Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
 </body>
 </html>
