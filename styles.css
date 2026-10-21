@@ -471,3 +471,112 @@ input:focus,select:focus{border-color:var(--sign);outline:none;box-shadow:0 0 0 
 .site .sb.pond{fill:#D2DCD8;stroke:#8A9096;stroke-width:2}
 @media (prefers-color-scheme:dark){.site .sb.bldg{fill:#262B31;stroke:#5A6168} .site .sb.pilot{fill:#3A2B27} .site .sb.other{fill:#22272B} .site .sb.pond{fill:#24302E}}
 .site-map svg{max-height:620px}
+
+/* โมเดลรถแบบใหม่ (SVG มองจากด้านบน) */
+svg.car{background:none!important;border-radius:0;box-shadow:none;overflow:visible;width:36px;height:66px;margin:-33px 0 0 -18px;filter:drop-shadow(0 5px 2px rgba(0,0,0,.4)) drop-shadow(0 0 1px rgba(0,0,0,.5))}
+svg.car.perm{color:#2F6BD0} svg.car.temp{color:#F4C431}
+.slot.t-vip svg.car.temp{color:#E9B820}
+
+/* รถชิดท้ายช่อง ไม่บังเลขช่อง */
+.slot.lay.f-d svg.car{transform:translateZ(6px) translateY(-11px)}
+.slot.lay.f-u svg.car{transform:translateZ(6px) translateY(11px) rotate(180deg)}
+.slot.lay.o-h.f-r svg.car{transform:translateZ(6px) translateX(-12px) rotate(90deg)}
+.slot.lay.o-h.f-l svg.car{transform:translateZ(6px) translateX(12px) rotate(-90deg)}
+.deco.gate span{left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);color:#111;background:var(--mark);padding:1px 6px;border-radius:3px;opacity:1;font-size:11px}
+
+.site .wall{fill:none;stroke:#2B5FB8;stroke-width:5;stroke-linejoin:round;opacity:.85}
+.site .wall-t{fill:#2B5FB8;font-weight:600}
+.site .sb.vacant{fill:#E9ECE6;stroke:#9AA09A;stroke-width:2;stroke-dasharray:8 6}
+@media (prefers-color-scheme:dark){.site .sb.vacant{fill:#23282C}}
+
+.site .narrow{fill:url(#none);fill:repeating-linear-gradient(0deg,#fff,#fff)}
+.site .narrow{fill:#E7E3DA;stroke:var(--stop);stroke-width:1.5;stroke-dasharray:5 4}
+.site .sb.room{fill:#F7E1DD;stroke:var(--stop)}
+.site .gatearrow{fill:none;stroke:#1F8A5B;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+.site .gate-t{fill:#1F8A5B;font-weight:700;font-size:18px}
+
+/* ===== ธีมสีตามโลโก้ i-Tail: น้ำเงิน-เขียวอมฟ้า (หาง) + ส้ม (ปีก) ===== */
+:root{
+  --brand:#2B7BC4; --brand-ink:#1C5A97; --teal:#2FB3AA; --orange:#F7941D; --orange2:#EF5B24;
+  --grad-tail:linear-gradient(135deg,#34BDB1 0%,#2B7BC4 100%); --grad-wing:linear-gradient(135deg,#FBB040 0%,#EF5B24 100%);
+  --sign:#2B7BC4; --sign-ink:#1C5A97; --sign-soft:#E2F0FA;
+  --mark:#F7941D; --mark-ink:#8A4300; --mark-soft:#FEEBD6;
+  --concrete:#EEF3F5; --paper2:#F3F7F8; --line:#D3DEE4;
+}
+@media (prefers-color-scheme:dark){:root{
+  --sign:#5FA8E6; --sign-ink:#A9D2F4; --sign-soft:#16304A; --mark:#F9A445; --mark-ink:#FFD3A1; --mark-soft:#3D2610;
+  --concrete:#11181D; --paper2:#1B242A; --line:#2B3740;
+}}
+.topbar{border-bottom:0;box-shadow:0 1px 0 var(--line)}
+.topbar::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:3px;background:linear-gradient(90deg,#34BDB1,#2B7BC4 55%,#F7941D 80%,#EF5B24)}
+.mark{background:var(--grad-tail);box-shadow:inset 0 0 0 4px #fff,0 0 0 2px #2B7BC4}
+.mark.sm{box-shadow:inset 0 0 0 2.5px #fff,0 0 0 1.5px #2B7BC4}
+.brand-name{background:var(--grad-tail);-webkit-background-clip:text;background-clip:text;color:transparent}
+.btn.pri{background:var(--grad-tail);border-color:transparent}
+.nav button[aria-current=page]{color:var(--brand-ink);background:var(--sign-soft);box-shadow:inset 0 -3px 0 var(--orange)}
+.zchip[aria-selected=true]{background:var(--grad-tail);border-color:transparent;color:#fff}
+.demobar{background:var(--grad-wing);color:#fff}
+.gate{background:repeating-linear-gradient(90deg,transparent 0 78px,rgba(255,255,255,.35) 78px 82px),linear-gradient(135deg,#1E5F99,#2B7BC4 55%,#2FB3AA)}
+.tag{border-bottom-color:#2B7BC4} .tag.temp{border-bottom-color:var(--orange)}
+.lg.perm{background:#2B7BC4} .lg.temp{background:#F7941D}
+.occ-bar .p{background:#2B7BC4} .occ-bar .t{background:#F7941D}
+svg.car.perm{color:#2C83D0} svg.car.temp{color:#F7941D} .slot.t-vip svg.car.temp{color:#EF6A24}
+/* ผังโรงงาน */
+.site .ground{fill:#EAF1F3} .site .rd{fill:#CBD5DC} .site .outside{fill:#DDE4E8}
+.site .sb.bldg{fill:#FFFFFF;stroke:#8FB0C9;stroke-width:2.5}
+.site .sb.pilot{fill:#FDE9D6;stroke:#F08A3C} .site .sb.plant{fill:#FFE3CC;stroke:#EF5B24}
+.site .sb.pond{fill:#D3EEEC;stroke:#5DBFB6} .site .pondtile{fill:#2FB3AA;opacity:.55}
+.site .sb.vacant{fill:#F1F5F6;stroke:#B9C7D0}
+.site .narrow{fill:#EDF2F4;stroke:#9FB3C2;stroke-dasharray:5 4}
+.site .canal{stroke:#7CC6E0}
+.site .slot-area{fill:rgba(247,148,29,.28);stroke:#F7941D;stroke-width:3}
+.site .slot-area.on{fill:rgba(247,148,29,.55);stroke:#EF5B24;stroke-width:4}
+.smk-p{fill:#2B7BC4} .smk.on .smk-p{fill:#F7941D;stroke:#fff} .smk.on .smk-pt{fill:#fff} .smk.on .smk-l{stroke:#EF5B24}
+.site .gatearrow{stroke:#2FB3AA} .site .gate-t{fill:#1E8F87}
+/* กำแพงอิฐ */
+.site .wall-sh,.site .wall-mo,.site .wall-br{fill:none;stroke-linejoin:miter;stroke-linecap:square}
+.site .wall-sh{stroke:rgba(60,30,15,.28);stroke-width:15;transform:translate(2px,3px)}
+.site .wall-mo{stroke:#E8D6C6;stroke-width:11}
+.site .wall-br{stroke:#B9532B;stroke-width:9;stroke-dasharray:15 2.5}
+.site .wall-t{fill:#9A4220;font-weight:700}
+@media (prefers-color-scheme:dark){.site .ground{fill:#16202A} .site .rd{fill:#2D3943} .site .outside{fill:#1C252D} .site .sb.bldg{fill:#22303B;stroke:#4C6A82} .site .wall-mo{stroke:#6B5546} .site .wall-br{stroke:#C9643A}}
+
+/* ===== ผังโรงงานแบบสถาปัตย์ (.sp) ===== */
+.site-map svg.sp{max-height:640px}
+.sp .land{fill:#F3F4F1} .sp .outside{fill:#E7E9E4}
+.sp .rd{fill:#D5D9DD} .sp .cl{stroke:#fff;stroke-width:1.6;stroke-dasharray:10 9;opacity:.9}
+.sp .b{fill:#fff;stroke:#7F8A94;stroke-width:1.4}
+.sp .b.roof{fill:url(#spRoof)} .sp .b.pp{fill:#FFF3E8;stroke:#C8794A} .sp .b.acc{fill:#F4F7F9}
+.sp .b.pond{fill:#E3F2F0;stroke:#6FB8AF} .sp .tank{fill:#9ED3CD;stroke:#5FA9A0;stroke-width:1.2}
+.sp .area{fill:#EEF2EA;stroke:#A5B1A0;stroke-width:1.4;stroke-dasharray:7 5}
+.sp .plot{fill:none;stroke:#9AA3AB;stroke-width:1.2;stroke-dasharray:3 4}
+.sp .water-b{fill:none;stroke:#A9CFE0;stroke-width:26;stroke-linecap:round} .sp .water{fill:none;stroke:#CBE6F2;stroke-width:16;stroke-linecap:round}
+.sp .pk{fill:url(#spStall);stroke:#2B7BC4;stroke-width:1.6}
+.sp .pk.on{fill:url(#spStallOn);stroke:#EF5B24;stroke-width:2.6}
+.sp .w-out{fill:none;stroke:#7E3A20;stroke-width:10;stroke-linejoin:miter;stroke-linecap:square}
+.sp .w-in{fill:none;stroke:#F6E7DD;stroke-width:6.4;stroke-linejoin:miter;stroke-linecap:square}
+.sp .w-ht{fill:none;stroke:url(#spHatch);stroke-width:6.4;stroke-linejoin:miter;stroke-linecap:square}
+.sp .g-ln{stroke:#1E9A90;stroke-width:3;stroke-dasharray:6 4} .sp .g-post{fill:#1F2A33}
+.sp .sp-pill rect{fill:#1E9A90} .sp .sp-pill text{fill:#fff;font:700 13px var(--f-ui);text-anchor:middle;dominant-baseline:middle}
+.sp .flow{fill:none;stroke:#1E9A90;stroke-width:4;stroke-linecap:round;stroke-linejoin:round} .sp .flow-t{fill:#167D75;font-weight:700;font-size:15px;text-anchor:start}
+.sp .lb{font:600 16px var(--f-ui);fill:#4A535C;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:4;stroke-linejoin:round}
+.sp .lb.xl{font-size:22px;fill:#3B444C} .sp .lb.lg{font-size:19px} .sp .lb.sm{font-size:13.5px} .sp .lb.xs{font-size:11.5px}
+.sp .lb.area-t{fill:#6B7A66;stroke:#EEF2EA} .sp .lb.out-t{fill:#5C6570;stroke:#E7E9E4} .sp .lb.water-t{fill:#4F8FAD;stroke:none}
+.sp .north circle{fill:#fff;stroke:#9AA3AB;stroke-width:1.4} .sp .north path{fill:#2B3640} .sp .north text{font:700 14px var(--f-ui);fill:#2B3640;text-anchor:middle}
+.sp .sp-legend .lg-bg{fill:#fff;fill-opacity:.94;stroke:#D3DAE0;stroke-width:1.2}
+.sp .sp-legend text{font:500 14px var(--f-ui);fill:#3B444C}
+.sp .note{font:500 12px var(--f-ui);fill:#7C858D}
+.sp .mk{cursor:pointer} .sp .mk-card{fill:#fff;stroke:#D7DEE4;stroke-width:1}
+.sp .mk-badge{fill:url(#spBadge);stroke:#fff;stroke-width:3} .sp .mk-p{font:700 23px var(--f-sign);fill:#fff;text-anchor:middle;dominant-baseline:middle}
+.sp .mk-t{font:700 16px var(--f-ui);fill:#1E272F} .sp .mk-s{font:500 13px var(--f-ui);fill:#6A747D} .sp .mk-s .ok{fill:#1E8C5A;font-weight:700} .sp .mk-s .full{fill:#C23E2E;font-weight:700}
+.sp .mk.on .mk-badge{fill:url(#spBadgeOn)} .sp .mk.on .mk-card{stroke:#EF5B24;stroke-width:2}
+.sp .mk:hover .mk-card{stroke:#2B7BC4} .sp .mk:focus-visible .mk-card{stroke:#F7941D;stroke-width:3}
+@media (prefers-color-scheme:dark){
+  .sp .land{fill:#151B20} .sp .outside{fill:#1B2228} .sp .rd{fill:#2A333B} .sp .b{fill:#212A32;stroke:#5B6873} .sp .b.roof{fill:#212A32}
+  .sp .b.pp{fill:#3A2A20} .sp .area{fill:#1C2620;stroke:#4F5E52} .sp .b.pond{fill:#18302E}
+  .sp .lb{fill:#C9D1D8;stroke:#151B20} .sp .lb.xl{fill:#E1E6EA} .sp .sp-legend .lg-bg{fill:#1D252C;stroke:#36424C} .sp .sp-legend text{fill:#C9D1D8}
+  .sp .mk-card{fill:#1D252C;stroke:#36424C} .sp .mk-t{fill:#E8EDF1} .sp .w-in{stroke:#4A3328}
+}
+.sp .mk-lead{stroke:#2B7BC4;stroke-width:2;stroke-dasharray:4 3} .sp .mk-dot{fill:#fff;stroke:#2B7BC4;stroke-width:2.5}
+.sp .b.bins{fill:#EAF3FA;stroke:#2B7BC4;stroke-width:1.4} .sp .b.post{fill:#FFF5E9;stroke:#F08A3C;stroke-width:1.6}
+@media (prefers-color-scheme:dark){.sp .b.bins{fill:#17283A} .sp .b.post{fill:#3A2A1C}}

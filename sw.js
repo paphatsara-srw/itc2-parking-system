@@ -1,5 +1,5 @@
 // Service worker: โหลดจากเน็ตก่อน แล้วเก็บสำเนาไว้เปิดตอนออฟไลน์ (ไม่แตะการเชื่อมต่อ Firebase/ล็อกอิน)
-const CACHE = 'parking-v1';
+const CACHE = 'parking-v2';
 const CORE = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
 const SKIP = h => h.endsWith('googleapis.com') && !h.startsWith('fonts.') || h.endsWith('firebaseapp.com') || h.endsWith('firebaseio.com') || h === 'accounts.google.com' || h === 'apis.google.com';
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
