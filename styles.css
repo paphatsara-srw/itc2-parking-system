@@ -255,7 +255,7 @@ input:focus,select:focus{border-color:var(--sign);outline:none;box-shadow:0 0 0 
 .site{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:12px}
 .site summary{cursor:pointer;padding:10px 14px;font-weight:600;font-family:var(--f-sign)}
 .site-map{padding:0 10px 10px}
-.site-map svg{width:100%;height:auto;max-height:440px;display:block}
+.site-map svg{width:100%;height:auto;max-height:560px;display:block}
 .site .canal{fill:none;stroke:#7FB3D5;stroke-width:16;opacity:.55}
 .site .road{fill:#BFC3BD} @media (prefers-color-scheme:dark){.site .road{fill:#3A4046}}
 .site .rt{font:500 22px var(--f-ui);fill:var(--muted)}
@@ -430,3 +430,44 @@ input:focus,select:focus{border-color:var(--sign);outline:none;box-shadow:0 0 0 
 .tpick button{border:1px solid var(--line);background:var(--paper2);border-radius:999px;padding:6px 12px;cursor:pointer;font-weight:600;font-size:.85rem}
 .tpick button:hover{border-color:var(--sign);color:var(--sign)}
 .tpick button.on{background:var(--sign);border-color:var(--sign);color:#fff}
+
+/* หน้าเข้าสู่ระบบด้วยชื่อผู้ใช้ */
+.login{display:grid;gap:12px;text-align:left}
+.login .f input{width:100%;min-height:46px;font-size:1rem}
+.gate-card .err{margin-top:12px;text-align:left}
+
+/* ยกช่องจอดขึ้นจากพื้นลานเล็กน้อย ไม่ให้พื้นลานบังตอนแตะ (ช่องกับพื้นอยู่ระนาบเดียวกันในมุมมอง 3 มิติ) */
+.stage .slot{transform:translateZ(1px)}
+
+/* ผังโรงงานตามภาพดาวเทียม */
+.site .fence{fill:none;stroke:var(--muted);stroke-width:3;stroke-dasharray:14 10;opacity:.6}
+.site .sb.roof{fill:#E9C9BF;stroke:#C9927F} .site .sb.solar{fill:#DDE3EA} .site .sb.out{fill:var(--paper2);stroke-dasharray:8 6}
+.site .pond{fill:#9DB7C4;stroke:var(--line);stroke-width:2}
+.site .slot-area{fill:rgba(242,194,48,.35);stroke:#D9A514;stroke-width:3}
+.site .slot-area.on{fill:rgba(242,194,48,.7);stroke:var(--ink)}
+@media (prefers-color-scheme:dark){.site .sb.roof{fill:#4A3530;stroke:#7A5246} .site .sb.solar{fill:#28313B} .site .pond{fill:#3B5866}}
+
+/* ผังโรงงานแบบลากตามภาพดาวเทียม */
+.site .ground{fill:#DCE3D6} @media (prefers-color-scheme:dark){.site .ground{fill:#1B2420}}
+.site .road{fill:none;stroke:#B9BDB6;stroke-width:22;stroke-linecap:butt} .site .road.thin{stroke-width:14;stroke:#8E959B} .site .road.wide{stroke-width:28}
+@media (prefers-color-scheme:dark){.site .road{stroke:#454C52} .site .road.thin{stroke:#3A4147}}
+.site .canal{stroke-width:24}
+.site .sb.pondarea{fill:#BFCBC9} .site .sb.out{fill:#CDD1CB;stroke:none}
+@media (prefers-color-scheme:dark){.site .sb.pondarea{fill:#2C3A3A} .site .sb.out{fill:#2A2F2C}}
+.site .fence{stroke:var(--muted);stroke-width:3;stroke-dasharray:12 8;opacity:.7}
+.site .st{font-size:22px}
+.site .rt{font-size:17px}
+.smk-pt{font-size:30px} .smk-t{font-size:20px} .smk-s{font-size:16px}
+.site .pondtile{fill:#5E6E70;opacity:.75} .site .sb.pondarea{fill:#C9D2CC}
+
+/* ผังโรงงานตามแบบแปลน */
+.site .rd{fill:#C3C7C0} @media (prefers-color-scheme:dark){.site .rd{fill:#3A4046}}
+.site .outside{fill:#D3D6CF} @media (prefers-color-scheme:dark){.site .outside{fill:#20252A}}
+.site .sb.bldg{fill:var(--paper);stroke:#8A9096;stroke-width:3}
+.site .sb.part{fill:none;stroke:#B4B9BE;stroke-width:1.5}
+.site .sb.pilot{fill:#F3E0DA;stroke:#B07A6A}
+.site .sb.other{fill:#E6E8E2;stroke:#B4B9BE;stroke-dasharray:6 5}
+.site .sb.blocked{fill:rgba(194,62,46,.12);stroke:var(--stop);stroke-width:2;stroke-dasharray:6 4}
+.site .sb.pond{fill:#D2DCD8;stroke:#8A9096;stroke-width:2}
+@media (prefers-color-scheme:dark){.site .sb.bldg{fill:#262B31;stroke:#5A6168} .site .sb.pilot{fill:#3A2B27} .site .sb.other{fill:#22272B} .site .sb.pond{fill:#24302E}}
+.site-map svg{max-height:620px}

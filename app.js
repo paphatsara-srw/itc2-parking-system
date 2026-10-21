@@ -72,7 +72,17 @@ function slotsText(slots) {
 /* ================= สถานะ ================= */
 let docs = new Map();                 // id -> เอกสารดิบ (แหล่งข้อมูลจริง)
 let db = { zones: [], permanent: [], temp: [], trash: [], checks: [] };
-let user = null, isAdmin = false, access = { members: [], admins: [] };
+let user = null, isAdmin = false, isGuard = false, access = { members: [], admins: [], guards: [], names: {} };
+/* บัญชีผู้ใช้: ล็อกอินด้วยชื่อผู้ใช้ + รหัสผ่าน (Firebase Email/Password) ผู้ดูแลสร้างบัญชีให้ใน Firebase Console
+   ชื่อผู้ใช้ที่ไม่มี @ จะถูกแปลงเป็น <ชื่อ>@parking.local ภายในระบบ (ไม่มีการส่งอีเมลจริง) */
+const USER_DOMAIN = 'parking.local';
+const toLogin = u => { u = String(u || '').trim().toLowerCase(); return u.includes('@') ? u : `${u}@${USER_DOMAIN}`; };
+const shortId = em => { em = String(em || ''); return em.endsWith('@' + USER_DOMAIN) ? em.slice(0, -(USER_DOMAIN.length + 1)) : em; };
+const ROLE_TXT = { admin: 'ผู้ดูแลระบบ', member: 'สมาชิก', guard: 'ผู้ตรวจ (รปภ.)' };
+function readAccess(d) { d = d || {}; return { members: d.members || [], admins: d.admins || [], guards: d.guards || [], names: d.names || {} }; }
+function roleOf(em) { em = String(em || '').toLowerCase(); return access.admins.includes(em) ? 'admin' : access.members.includes(em) ? 'member' : access.guards.includes(em) ? 'guard' : ''; }
+function applyRole() { const r = roleOf(user && user.email); isAdmin = r === 'admin'; isGuard = r === 'guard'; document.body.classList.toggle('as-guard', isGuard); return r; }
+const GUARD_TABS = ['map', 'chk', 'set'];
 let fs = null, col = null, locks = null, auth = null, unsub = [];
 let netState = 'wait';
 const S = {                           // สถานะหน้าจอ
@@ -93,7 +103,7 @@ const getZone = id => db.zones.find(z => z.id === id);
 const zoneName = id => (getZone(id) || { name: '(ไม่พบสถานที่)' }).name;
 const capOf = z => z ? (z.free ? (+z.capacity || 0) : z.slots.length) : 0;
 const hasSlot = (z, s) => !!z && z.slots.some(x => normSlot(x) === normSlot(s));
-const by = () => (user && (user.name || user.email)) || '';
+const by = () => user ? ((access.names || {})[user.email] || user.name || shortId(user.email)) : '';
 function stamp(r, a) { const n = Date.now(); r.createdAt = n; r.updatedAt = n; r.createdBy = by(); r.log = [{ at: n, a, by: by() }]; return r; }
 function touch(r, a) { const n = Date.now(); r.updatedAt = n; r.updatedBy = by(); r.log = (r.log || []).concat({ at: n, a, by: by() }).slice(-40); return r; }
 
@@ -136,6 +146,7 @@ function rebuild() {
 }
 let purged = new Set();
 function purgeOldTrash() {
+  if (isGuard) return;   // ผู้ตรวจไม่มีสิทธิ์ลบ
   const old = db.trash.filter(x => x.deletedAt + TRASH_MS <= Date.now() && !purged.has(x.id));
   if (!old.length) return;
   old.forEach(x => purged.add(x.id));
@@ -325,7 +336,8 @@ function renderAll() {
   if (!$('sheet').hidden) refreshSheetSlots();
 }
 function renderNav() {
-  document.querySelectorAll('[data-tab]').forEach(b => { if (b.dataset.tab === S.tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  if (isGuard && !GUARD_TABS.includes(S.tab)) S.tab = 'chk';
+  document.querySelectorAll('[data-tab]').forEach(b => { b.hidden = isGuard && !GUARD_TABS.includes(b.dataset.tab); if (b.dataset.tab === S.tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   ['map', 'today', 'chk', 'sum', 'data', 'set'].forEach(t => { $('tab-' + t).hidden = t !== S.tab; });
 }
 function showTab(t) { S.tab = t; saveUi(); renderAll(); window.scrollTo({ top: 0 }); }
@@ -404,33 +416,51 @@ function customLot(z, cellOf) {   // คืน {html, w, h} หน่วยพ�
   });
   return { html: deco + slotsH + roofs, w: L.w * UNIT, h: H * UNIT };
 }
-/* ---------- ผังโรงงานภาพรวม (วาดตามผังโรงงานและภาพดาวเทียม ตำแหน่งโดยประมาณ) ---------- */
-function sitePos(z, i) {
-  const k = presetKey(z), n = String(z.name);
-  if (k === 'pilot') return [70, 330];
-  if (k === 'waste') return [820, -30];
-  if (/2\.2/.test(n)) return [520, 650];
-  if (/ไฟฟ้า/.test(n)) return [190, 600];
-  return [880 - i * 90, 676];
-}
+/* ---------- ผังโรงงานภาพรวม ----------
+   โครงหลักตามผังโรงงานจริง (แบบแปลนที่แผนกส่งมา) ส่วนบ่อบำบัดน้ำเสียและโรงไฟฟ้าซึ่งอยู่นอกแบบแปลน วางตามภาพดาวเทียม */
+const SITE_LOTS = {
+  pilot: { pts: '14,300 142,300 142,492 104,492', p: [78, 452], side: 'r' },
+  waste: { pts: '664,-138 688,-138 688,14 664,14', p: [676, -112], side: 'r' },
+  front: { pts: '470,612 660,612 660,668 470,668', p: [548, 640], side: 'r' },
+  power: { pts: '250,716 310,716 310,852 250,852', p: [280, 784], side: 'r' }
+};
+const siteKey = z => { const k = presetKey(z), n = String(z.name); return k === 'pilot' ? 'pilot' : k === 'waste' ? 'waste' : /2\.2/.test(n) ? 'front' : /ไฟฟ้า/.test(n) ? 'power' : ''; };
 function renderSite() {
   const det = $('site'); if (!det) return;
   if (det.dataset.init !== '1') { det.dataset.init = '1'; if (window.innerWidth > 760) det.open = true; }
-  const B = (x, y, w, h, t, cls = '') => `<rect class="sb ${cls}" x="${x}" y="${y}" width="${w}" height="${h}" rx="4"/><text class="st" x="${x + w / 2}" y="${y + h / 2}">${t}</text>`;
+  const R = (x, y, w, h, cls) => `<rect class="sb ${cls || ''}" x="${x}" y="${y}" width="${w}" height="${h}"/>`;
+  const T = (x, y, t, st) => `<text class="st" x="${x}" y="${y}"${st ? ` style="${st}"` : ''}>${t}</text>`;
+  const RD = (x, y, w, h) => `<rect class="rd" x="${x}" y="${y}" width="${w}" height="${h}"/>`;
+  const cur = getZone(S.zone), curKey = cur ? siteKey(cur) : '';
+  const lots = Object.entries(SITE_LOTS).map(([k, L]) => `<polygon class="slot-area ${k === curKey ? 'on' : ''}" points="${L.pts}"/>`).join('');
+  const world = `<rect class="ground" x="-10" y="-170" width="1160" height="1050"/>
+    <rect class="outside" x="-10" y="702" width="1160" height="178"/>
+    <path class="canal" d="M-10 400 C 30 500, 75 600, 122 710 S 150 820, 160 880"/>
+    ${RD(-10, 22, 1160, 26)}${RD(-10, 678, 1160, 24)}${RD(126, 48, 20, 630)}${RD(450, 48, 36, 630)}${RD(664, 48, 28, 630)}${RD(1084, 48, 20, 630)}${RD(146, 262, 144, 22)}${RD(246, 284, 42, 394)}${RD(692, 628, 392, 24)}
+    <path class="sb bldg" d="M150 60 H445 V665 H292 V255 H150 Z"/>
+    ${R(148, 300, 94, 172, 'bldg pilot')}${R(490, 60, 170, 548, 'bldg')}
+    ${R(697, 60, 383, 562, 'bldg')}
+    ${R(452, 545, 32, 130, 'blocked')}${R(-4, 60, 124, 230, 'bldg')}${R(160, -150, 262, 160, 'bldg')}
+    ${R(500, -150, 158, 162, 'bldg')}${R(696, -160, 230, 172, 'pond')}
+    ${[[715, -140], [770, -140], [825, -140], [715, -90], [770, -90], [825, -90], [715, -40], [770, -40], [880, -70]].map(([x, y]) => `<rect class="pondtile" x="${x}" y="${y}" width="44" height="40" rx="5"/>`).join('')}
+    ${R(160, 712, 240, 160, 'other')}
+    ${lots}
+    ${T(296, 160, 'อาคารผลิต 2.1')}${T(575, 330, 'อาคารผลิต 2.2')}${T(195, 386, 'อาคาร PILOT PLANT', 'font-size:15px')}
+    ${T(888, 340, 'อาคาร 40 ไร่', 'font-size:30px')}
+    ${T(58, 176, 'หอพัก', 'font-size:20px')}${T(291, -70, 'บอยเลอร์', 'font-size:22px')}${T(579, -70, 'อาคาร FISH OIL', 'font-size:16px')}<text class="rt" x="267" y="560" transform="rotate(-90 267 560)">ถนน</text>${T(811, 4, 'บ่อบำบัดน้ำเสีย TUM3', 'font-size:15px')}
+    <text class="rt" x="540" y="40">ถนนโครงการ</text><text class="rt" x="560" y="695">ถนนสาธารณประโยชน์</text>
+    <text class="rt" x="468" y="300" transform="rotate(-90 468 300)">ถนนโครงการ</text><text class="rt" x="34" y="520" transform="rotate(68 34 520)">คลอง</text>
+    <text class="rt" x="468" y="610" transform="rotate(-90 468 610)" style="fill:var(--stop);font-size:14px">ปิดกั้นเส้นทาง</text>
+    <text class="rt" x="410" y="740" style="fill:var(--ink)">นอกรั้วโรงงาน</text>`;
   const marks = db.zones.map((z, i) => {
-    const [x, y] = sitePos(z, i), o = occupancy(z, S.vDate, S.vFrom, S.vTo), f = Math.max(0, o.cap - o.used), on = z.id === S.zone;
+    const L = SITE_LOTS[siteKey(z)] || { p: [1100, -120 + i * 70], side: 'l' }, [x, y] = L.p, o = occupancy(z, S.vDate, S.vFrom, S.vTo), f = Math.max(0, o.cap - o.used), on = z.id === S.zone;
+    const w = Math.max(150, z.name.length * 17 + 26), lx = L.side === 'l' ? -30 - w : 30;
     return `<g class="smk ${on ? 'on' : ''}" data-zone="${esc(z.id)}" role="button" tabindex="0" aria-label="${esc(z.name)} ว่าง ${f} จาก ${o.cap}" transform="translate(${x},${y})">
-      <rect x="-30" y="-30" width="60" height="60" rx="11" class="smk-p"/><text class="smk-pt" y="3">P</text>
-      <rect x="36" y="-30" width="${Math.max(170, z.name.length * 19 + 30)}" height="60" rx="8" class="smk-l"/><text class="smk-t" x="50" y="-5">${esc(z.name)}</text><text class="smk-s" x="50" y="20">ว่าง ${f}/${o.cap}</text></g>`;
+      <rect x="-24" y="-24" width="48" height="48" rx="9" class="smk-p"/><text class="smk-pt" y="2">P</text>
+      <rect x="${lx}" y="-26" width="${w}" height="52" rx="7" class="smk-l"/><text class="smk-t" x="${lx + 12}" y="-4">${esc(z.name)}</text><text class="smk-s" x="${lx + 12}" y="18">ว่าง ${f}/${o.cap}</text></g>`;
   }).join('');
-  $('siteMap').innerHTML = `<svg viewBox="0 -80 1160 840" role="img" aria-label="ผังโรงงานและตำแหน่งลานจอด">
-    <path class="canal" d="M20 -80 C 40 80, 0 240, 30 380 S 10 620, 30 740"/>
-    <rect class="road" x="0" y="20" width="1160" height="22"/><rect class="road" x="0" y="690" width="1160" height="26"/><rect class="road" x="455" y="42" width="30" height="648"/><rect class="road" x="668" y="42" width="26" height="648"/><rect class="road" x="1095" y="42" width="22" height="648"/>
-    <text class="rt" x="760" y="709">ถนนสาธารณประโยชน์</text><text class="rt" x="840" y="35">ถนนโครงการ</text>
-    ${B(560, -66, 230, 72, 'TUM3')}${B(150, 300, 92, 170, '')}<text class="st" x="196" y="440">Pilot</text>
-    <path class="sb" d="M150 60 H445 V660 H295 V290 H150 Z"/><text class="st" x="300" y="180">อาคารผลิต 2.1</text>
-    ${B(495, 60, 165, 610, 'อาคารผลิต 2.2')}${B(705, 60, 380, 600, 'Cold Storage / Warehouse')}${B(48, 520, 90, 120, '', 'pw')}
-    ${marks}<text class="rt" x="1150" y="740" text-anchor="end">ตำแหน่งโดยประมาณ</text></svg>`;
+  $('siteMap').innerHTML = `<svg viewBox="-10 -170 1160 1050" role="img" aria-label="ผังโรงงานและตำแหน่งลานจอด ตามแบบแปลนโรงงาน">${world}${marks}
+    <text class="rt" x="1140" y="866" text-anchor="end">ตามแบบแปลนโรงงาน บ่อบำบัดและโรงไฟฟ้าวางตามภาพดาวเทียม</text></svg>`;
 }
 function lotHtml(z, o) {
   if (validLayout(z)) {
@@ -482,22 +512,23 @@ function layoutStage() {
 }
 
 /* ---------- แผงรายละเอียด ---------- */
-function renderPanel(z, o) {
+function renderPanel(z, o) { renderPanelInner(z, o); if (isGuard) $('panel').querySelectorAll('.p-actions').forEach(e => e.remove()); }
+function renderPanelInner(z, o) {
   const p = $('panel'), sel = S.sel;
   const win = `${fmtDate(S.vDate)} ${S.vFrom}–${S.vTo} น.`;
   const histBtn = (kind, id) => `<button class="btn ghost sm" data-act="hist" data-kind="${kind}" data-id="${esc(id)}">ประวัติการแก้ไข</button>`;
   const otherList = (list, title) => list.length ? `<div class="p-list"><h4>${title}</h4><ul>${list.map(t => `<li><span>${esc(t.from)}–${esc(t.to)} ${esc(short(t.name, 22))}</span><button class="link" data-act="sel-temp" data-id="${esc(t.id)}">ดู</button></li>`).join('')}</ul></div>` : '';
   if (sel && sel.perm) {
-    const r = db.permanent.find(x => x.id === sel.perm); if (!r) { S.sel = null; return renderPanel(z, o); }
+    const r = db.permanent.find(x => x.id === sel.perm); if (!r) { S.sel = null; return renderPanelInner(z, o); }
     p.innerHTML = `<div class="p-slot">${esc(r.slot)}</div><div class="p-zone">${esc(zoneName(r.zone))}</div>
       <p style="margin-top:10px"><span class="status st-perm">ช่องประจำ ระยะยาว</span> ${tagOf(getZone(r.zone), r.slot) === 'exec' ? '<span class="status st-exec">ผู้บริหาร</span>' : ''}</p>
-      <dl><dt>ชื่อ</dt><dd>${esc(r.name)}</dd><dt>ทะเบียน</dt><dd>${esc(r.plate)}</dd><dt>รหัสพนักงาน</dt><dd>${esc(r.empId)}</dd>
-      <dt>แผนก / ฝ่าย</dt><dd>${esc([r.dept, r.division].filter(Boolean).join(' / ') || '—')}</dd><dt>แก้ไขล่าสุด</dt><dd>${fmtTs(r.updatedAt)}${r.updatedBy ? '<br><span class="muted">' + esc(r.updatedBy) + '</span>' : ''}</dd></dl>
+      <dl><dt>ชื่อ</dt><dd>${esc(r.name)}</dd><dt>ทะเบียน</dt><dd>${esc(r.plate)}</dd>${isGuard ? '' : `<dt>รหัสพนักงาน</dt><dd>${esc(r.empId)}</dd>`}
+      ${isGuard ? '' : `<dt>แผนก / ฝ่าย</dt><dd>${esc([r.dept, r.division].filter(Boolean).join(' / ') || '—')}</dd>`}<dt>แก้ไขล่าสุด</dt><dd>${fmtTs(r.updatedAt)}${r.updatedBy ? '<br><span class="muted">' + esc(r.updatedBy) + '</span>' : ''}</dd></dl>
       <div class="p-actions"><button class="btn pri" data-act="edit-perm" data-id="${esc(r.id)}">แก้ไข</button><button class="btn ghost" data-act="toggle-perm" data-id="${esc(r.id)}">คืนช่อง (ลาออก/ย้าย)</button>${histBtn('perm', r.id)}</div>`;
     return;
   }
   if (sel && sel.temp) {
-    const t = db.temp.find(x => x.id === sel.temp); if (!t) { S.sel = null; return renderPanel(z, o); }
+    const t = db.temp.find(x => x.id === sel.temp); if (!t) { S.sel = null; return renderPanelInner(z, o); }
     const st = tStatus(t), zz = getZone(t.zone);
     const others = db.temp.filter(x => x.id !== t.id && x.zone === t.zone && x.date === t.date && t.slot && normSlot(x.slot) === normSlot(t.slot) && isLiveOn(x, t.date));
     p.innerHTML = `<div class="p-slot">${esc(t.slot || (zz && zz.free ? 'จอดอิสระ' : 'ยังไม่ระบุช่อง'))}</div><div class="p-zone">${esc(zoneName(t.zone))}</div>
@@ -971,9 +1002,13 @@ async function importFile(f) {
 /* ---------- ตั้งค่า ---------- */
 function renderSet() {
   if (document.activeElement && $('setBody').contains(document.activeElement) && document.activeElement.matches('input')) return;   // ไม่ทับช่องที่กำลังพิมพ์
-  const roleTxt = isAdmin ? 'ผู้ดูแลระบบ' : 'สมาชิก';
-  const me = `<div class="card"><h3>บัญชีของฉัน</h3><div class="me">${user.photo ? `<img src="${esc(user.photo)}" alt="" referrerpolicy="no-referrer">` : '<span class="mark sm">P</span>'}<div><b>${esc(user.name || user.email)}</b><div class="muted">${esc(user.email)} <span class="pill">${roleTxt}</span></div></div></div>
+  const role = roleOf(user.email) || (isAdmin ? 'admin' : 'member');
+  const me = `<div class="card"><h3>บัญชีของฉัน</h3><div class="me"><span class="mark sm">P</span><div><b>${esc(by())}</b><div class="muted">ชื่อผู้ใช้ ${esc(shortId(user.email))} <span class="pill">${ROLE_TXT[role]}</span></div></div></div>
+    <form id="pwForm" class="grid2" style="margin-top:14px" autocomplete="off"><label class="f span2"><span>รหัสผ่านปัจจุบัน</span><input name="cur" type="password" autocomplete="current-password" required></label>
+    <label class="f"><span>รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)</span><input name="nw" type="password" minlength="8" autocomplete="new-password" required></label><label class="f"><span>ยืนยันรหัสผ่านใหม่</span><input name="nw2" type="password" minlength="8" autocomplete="new-password" required></label>
+    <div class="span2 row-gap"><button class="btn sm" type="submit">เปลี่ยนรหัสผ่าน</button></div></form>
     <div class="row-gap" style="margin-top:14px">${fs ? '<button class="btn ghost" data-act="signout">ออกจากระบบ</button>' : '<button class="btn ghost" data-act="demo-reset">ล้างข้อมูลสาธิต</button>'}</div></div>`;
+  if (isGuard) { $('setBody').innerHTML = `<div class="page-head"><h2>ตั้งค่า</h2></div><div class="set-grid">${me}</div>`; return; }
   const dis = isAdmin ? '' : 'disabled', tagTxt = (z, t) => slotsText(z.slots.filter(x => tagOf(z, x) === t));
   const zones = `<div class="card wide"><h3>สถานที่และผังช่องจอด</h3><p class="muted">หมายเลขช่องเขียนได้ เช่น 1-45 หรือ 1-10, 15, A1-A8 ช่อง VIP รับเฉพาะรถลูกค้า VIP แบบจองตามเวลา ช่องผู้บริหารเป็นช่องประจำ สถานที่ที่จอดอิสระรับรถชั่วคราวทั่วไป${isAdmin ? '' : ' (แก้ไขได้เฉพาะผู้ดูแลระบบ)'}</p>
     ${db.zones.map((z, i) => `<div class="zedit" data-zone="${esc(z.id)}"><div class="zf">
@@ -987,9 +1022,13 @@ function renderSet() {
       ${isAdmin && presetKey(z) ? `<button class="btn sm ${validLayout(z) ? 'ghost' : 'pri'}" data-act="apply-preset" data-id="${esc(z.id)}">${validLayout(z) ? 'ตั้งผังตามแบบฟอร์มใหม่' : 'ใช้ผังจริงตามแบบฟอร์มตรวจเช็ค'}</button>` : ''}
       ${isAdmin ? `<span class="row-gap"><button class="btn ghost sm" data-act="zone-up" data-id="${esc(z.id)}" ${i ? '' : 'disabled'} aria-label="เลื่อนขึ้น">▲</button><button class="btn ghost sm" data-act="hist" data-kind="zone" data-id="${esc(z.id)}">ประวัติ</button><button class="btn sm" data-act="save-zone" data-id="${esc(z.id)}">บันทึก</button><button class="btn ghost sm" data-act="del-zone" data-id="${esc(z.id)}" style="color:var(--stop)">ลบ</button></span>` : ''}</div></div>`).join('')}
     ${isAdmin ? `<form id="zoneAdd" class="zedit"><div class="zf"><label>ชื่อสถานที่ใหม่<input name="name" maxlength="60" required></label><label>หมายเลขช่อง (เว้นว่าง = จอดอิสระ)<input name="slots" placeholder="1-10"></label><label>ความจุถ้าจอดอิสระ<input name="cap" type="number" min="1" value="10"></label></div><div class="zfoot"><span></span><button class="btn pri sm">เพิ่มสถานที่</button></div></form>` : ''}</div>`;
-  const members = `<div class="card members"><h3>สมาชิกที่เข้าใช้ได้</h3><p class="muted">เฉพาะอีเมลในรายการนี้ที่ล็อกอินเข้าระบบได้ ผู้ดูแลระบบแก้ผังและสมาชิกได้</p>
-    <ul>${[...new Set([...(access.admins || []), ...(access.members || [])])].sort().map(em => `<li><span>${esc(em)} ${(access.admins || []).includes(em) ? '<span class="pill">ผู้ดูแล</span>' : ''}</span>${isAdmin && em !== (user.email || '').toLowerCase() ? `<button class="link danger" data-act="rm-member" data-email="${esc(em)}">นำออก</button>` : ''}</li>`).join('') || '<li class="muted">ยังไม่มีสมาชิก</li>'}</ul>
-    ${isAdmin ? `<form id="memberAdd" class="row-gap"><input name="email" type="email" placeholder="อีเมลคนในแผนก" required style="flex:1 1 200px"><select name="role"><option value="members">สมาชิก</option><option value="admins">ผู้ดูแล</option></select><button class="btn pri">เพิ่ม</button></form>` : ''}</div>`;
+  const allIds = [...new Set([...access.admins, ...access.members, ...access.guards])].sort((x, y) => (['admin', 'member', 'guard'].indexOf(roleOf(x)) - ['admin', 'member', 'guard'].indexOf(roleOf(y))) || x.localeCompare(y));
+  const members = `<div class="card members"><h3>ผู้ใช้ที่เข้าระบบได้ (${allIds.length})</h3><p class="muted">ล็อกอินด้วยชื่อผู้ใช้และรหัสผ่าน ผู้ตรวจ (รปภ.) ดูผังและบันทึกตรวจเช็คได้อย่างเดียว ไม่เห็นรหัสพนักงาน${isAdmin ? ' เพิ่มชื่อที่นี่แล้วสร้างบัญชีใน Firebase ด้วยชื่อเดียวกัน' : ''}</p>
+    <ul>${allIds.map(em => { const r = roleOf(em), nm = access.names[em]; return `<li><span><b>${esc(shortId(em))}</b>${nm ? ` <span class="muted">${esc(nm)}</span>` : ''} <span class="pill">${ROLE_TXT[r]}</span></span>${isAdmin && em !== user.email ? `<button class="link danger" data-act="rm-member" data-email="${esc(em)}">นำออก</button>` : ''}</li>`; }).join('') || '<li class="muted">ยังไม่มีผู้ใช้</li>'}</ul>
+    ${isAdmin ? `<form id="memberAdd" class="grid2"><label class="f"><span>ชื่อผู้ใช้</span><input name="uid" required maxlength="40" pattern="[A-Za-z0-9._@\\-]+" placeholder="เช่น guard01 หรือ somchai" autocapitalize="none"></label>
+      <label class="f"><span>ชื่อที่แสดง</span><input name="nm" maxlength="40" placeholder="เช่น รปภ. สมศักดิ์ กะเช้า"></label>
+      <label class="f"><span>บทบาท</span><select name="role"><option value="guards">ผู้ตรวจ (รปภ.)</option><option value="members">สมาชิก (คนในแผนก)</option><option value="admins">ผู้ดูแลระบบ</option></select></label>
+      <div class="f" style="justify-content:flex-end"><button class="btn pri">เพิ่มผู้ใช้</button></div></form>` : ''}</div>`;
   const backup = `<div class="card"><h3>สำรองข้อมูล</h3><p class="muted">ดาวน์โหลดไฟล์สำรองเก็บไว้เป็นระยะ ไฟล์มีข้อมูลส่วนบุคคลของพนักงาน เก็บในที่ปลอดภัย</p>
     <div class="row-gap"><button class="btn" data-act="backup">ดาวน์โหลดไฟล์สำรอง</button>${isAdmin ? '<button class="btn ghost" data-act="restore">กู้คืนจากไฟล์สำรอง</button><button class="btn ghost" data-act="relock">ตรวจดัชนีกันจองชน</button>' : ''}</div></div>`;
   const trash = db.trash.slice().sort((a, b) => b.deletedAt - a.deletedAt);
@@ -1004,8 +1043,10 @@ function renderSet() {
 }
 
 /* ================= การกระทำ ================= */
+const GUARD_DENY = new Set(['book-here', 'perm-here', 'new-temp', 'new-perm-or-temp', 'edit-perm', 'edit-temp', 'cancel-temp', 'del-temp', 'del-perm', 'toggle-perm', 'import', 'restore', 'restore-trash', 'purge', 'save-zone', 'del-zone', 'zone-up', 'apply-preset', 'seed-zones', 'relock', 'rm-member', 'backup', 'export-data', 'export-sum', 'hist']);
 async function act(b) {
   const a = b.dataset.act, id = b.dataset.id;
+  if (isGuard && GUARD_DENY.has(a)) return toast('บัญชีผู้ตรวจทำรายการนี้ไม่ได้');
   const z = getZone(S.zone);
   switch (a) {
     case 'sel-slot': S.sel = { zone: S.zone, slot: b.dataset.slot }; renderMap(); return peekPanel();
@@ -1080,14 +1121,14 @@ async function act(b) {
     case 'rm-member': return setMember(b.dataset.email, null);
     case 'signout': return auth.signOut();
     case 'demo-reset': if (await askConfirm('ล้างข้อมูลสาธิตและเริ่มใหม่?', 'ล้างข้อมูล', true)) { localStorage.removeItem(DEMO_KEY); location.reload(); } return;
-    case 'signin': return signIn();
+    case 'signin': return;
     case 'reload': return location.reload();
   }
 }
 function defaultZones() {
   const Z = (id, key, ord) => { const P = PRESETS[key](); return stamp({ id, name: P.name, slots: P.slots, capacity: P.slots.length, tags: P.tags, layout: P.layout, note: P.note, allowPerm: true, perRow: 12, ord }, 'สร้างสถานที่'); };
   const F = (id, name, cap, ord, note) => stamp({ id, name, slots: [], free: true, capacity: cap, perRow: 8, ord, note }, 'สร้างสถานที่');
-  return [Z('z-pilot-plant', 'pilot', 0), Z('z-wastewater', 'waste', 1), F('z-front-2-2', 'หน้าตึก 2.2', 15, 2, 'หน้าอาคารผลิต 2.2'), F('z-power-plant', 'โรงไฟฟ้า', 20, 3, 'ข้างโรงไฟฟ้า')];
+  return [Z('z-pilot-plant', 'pilot', 0), Z('z-wastewater', 'waste', 1), F('z-front-2-2', 'หน้าตึก 2.2', 15, 2, 'หน้าอาคารผลิต 2.2'), F('z-power-plant', 'โรงไฟฟ้า', 20, 3, 'นอกรั้วโรงงาน ฝั่งตรงข้ามถนนสาธารณประโยชน์')];
 }
 async function seedZones() {
   await writeOps(defaultZones().map(rec => ({ kind: 'zone', rec }))).catch(() => {});
@@ -1184,16 +1225,37 @@ async function restoreBackup(f) {
     toast('กู้คืนข้อมูลแล้ว');
   } catch (e) { toast(e === 0 ? 'ไฟล์สำรองไม่ถูกต้อง' : 'กู้คืนไม่สำเร็จ'); }
 }
-async function setMember(email, role) {
-  email = String(email || '').trim().toLowerCase(); if (!email) return;
-  if (!role && !await askConfirm(`นำ ${esc(email)} ออกจากสมาชิก? จะเข้าระบบไม่ได้อีก`, 'นำออก', true)) return;
-  if (!fs) { ['members', 'admins'].forEach(k => { access[k] = (access[k] || []).filter(e => e !== email); }); if (role) access[role].push(email); renderSet(); return; }
-  const F = firebase.firestore.FieldValue, ref = fs.doc('config/access');
+async function setMember(raw, role, name) {
+  const em = toLogin(raw); if (!raw || !/^[a-z0-9._%+\-]+@[a-z0-9.\-]+$/.test(em)) return toast('ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ -');
+  if (!role && !await askConfirm(`นำ <b>${esc(shortId(em))}</b> ออก? จะเข้าระบบไม่ได้อีก (ลบหรือปิดบัญชีใน Firebase ด้วย)`, 'นำออก', true)) return;
+  const LISTS = ['admins', 'members', 'guards'];
+  if (!fs) {
+    LISTS.forEach(k => { access[k] = access[k].filter(e => e !== em); }); if (role) { access[role].push(em); if (name) access.names[em] = name; } else delete access.names[em];
+    renderSet(); return toast(role ? 'เพิ่มผู้ใช้แล้ว (โหมดสาธิต)' : 'นำออกแล้ว');
+  }
+  const F = firebase.firestore.FieldValue, FP = firebase.firestore.FieldPath, ref = fs.doc('config/access');
   try {
-    if (role) await ref.update({ [role]: F.arrayUnion(email), [role === 'admins' ? 'members' : 'admins']: F.arrayRemove(email) });
-    else await ref.update({ members: F.arrayRemove(email), admins: F.arrayRemove(email) });
-    toast(role ? 'เพิ่มสมาชิกแล้ว' : 'นำออกแล้ว');
+    const args = [];
+    LISTS.forEach(k => args.push(k, k === role ? F.arrayUnion(em) : F.arrayRemove(em)));
+    args.push(new FP('names', em), role ? (name || shortId(em)) : F.delete());
+    await ref.update(...args);
+    if (!role) return toast('นำออกแล้ว');
+    openDialog({ title: 'ขั้นต่อไป: สร้างบัญชีใน Firebase', body: `<p>เพิ่ม <b>${esc(shortId(em))}</b> ในรายชื่อแล้ว ต้องสร้างบัญชีให้ด้วย ถึงจะล็อกอินได้</p>
+      <ol style="padding-left:20px;margin-top:8px"><li>เปิด Firebase Console > Authentication > Users</li><li>กด <b>Add user</b></li><li>Email ใส่ <b style="user-select:all">${esc(em)}</b></li><li>Password ตั้งรหัสผ่านอย่างน้อย 8 ตัว แล้วกด Add user</li><li>แจ้งผู้ใช้: ชื่อผู้ใช้ <b>${esc(shortId(em))}</b> และรหัสผ่านที่ตั้ง</li></ol>`,
+      buttons: [{ label: 'ปิด', value: false }, { label: 'เปิด Firebase Console', value: true, cls: 'pri' }] }).then(v => { if (v) window.open(`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/users`, '_blank', 'noopener'); });
   } catch (e) { writeErr(e); }
+}
+async function changePassword(f) {
+  const cur = f.get('cur'), nw = f.get('nw'), nw2 = f.get('nw2');
+  if (nw.length < 8) return toast('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัว');
+  if (nw !== nw2) return toast('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน');
+  if (!fs) return toast('โหมดสาธิต: เปลี่ยนรหัสผ่านจริงไม่ได้');
+  try {
+    const u = auth.currentUser;
+    await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, cur));
+    await u.updatePassword(nw);
+    toast('เปลี่ยนรหัสผ่านแล้ว'); $('pwForm') && $('pwForm').reset();
+  } catch (e) { toast(['auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(e.code) ? 'รหัสผ่านปัจจุบันไม่ถูกต้อง' : e.code === 'auth/too-many-requests' ? 'ลองผิดหลายครั้ง รอสักครู่แล้วลองใหม่' : 'เปลี่ยนรหัสผ่านไม่สำเร็จ (' + (e.code || '') + ')'); }
 }
 
 /* ================= กล่องยืนยัน / แจ้งเตือน ================= */
@@ -1264,7 +1326,9 @@ function bindEvents() {
       stamp(rec, 'สร้างสถานที่'); put('zone', rec).then(() => toast('เพิ่มสถานที่แล้ว')).catch(() => {}); e.target.reset();
     }
     if (e.target.id === 'ckForm') { e.preventDefault(); const f = new FormData(e.target); if (S.cSlot) saveCheck(S.cSlot, { seen: String(f.get('seen') || '').trim(), note: String(f.get('note') || '').trim() }).then(() => { toast('บันทึกแล้ว'); renderCheck(); }); return; }
-    if (e.target.id === 'memberAdd') { e.preventDefault(); const f = new FormData(e.target); setMember(f.get('email'), f.get('role')); e.target.reset(); }
+    if (e.target.id === 'memberAdd') { e.preventDefault(); const f = new FormData(e.target); setMember(f.get('uid'), f.get('role'), String(f.get('nm') || '').trim()); e.target.reset(); }
+    if (e.target.id === 'pwForm') { e.preventDefault(); changePassword(new FormData(e.target)); }
+    if (e.target.id === 'loginForm') { e.preventDefault(); signIn(new FormData(e.target)); }
   });
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (S.tab === 'map') layoutStage(); }, 120); });
   window.addEventListener('online', () => setNet(fs ? 'wait' : 'demo')); window.addEventListener('offline', () => setNet(fs ? 'offline' : 'demo'));
@@ -1286,16 +1350,28 @@ function gate(kind, extra) {
   $('app').hidden = true; $('gate').hidden = false;
   const B = $('gateBody');
   if (kind === 'loading') B.innerHTML = '<p class="muted">กำลังตรวจสอบบัญชี…</p>';
-  else if (kind === 'signin') B.innerHTML = `<button class="btn pri" data-act="signin">เข้าสู่ระบบด้วย Google</button><p class="gate-msg">ใช้ได้เฉพาะบัญชีที่ผู้ดูแลระบบเพิ่มไว้ในรายชื่อสมาชิกของแผนก</p>${extra ? `<p class="err">${esc(extra)}</p>` : ''}`;
-  else if (kind === 'denied') B.innerHTML = `<p class="gate-msg">บัญชี <b>${esc(extra)}</b> ยังไม่มีสิทธิ์เข้าใช้ระบบนี้ ส่งอีเมลนี้ให้ผู้ดูแลระบบเพื่อเพิ่มเป็นสมาชิก แล้วลองเข้าใหม่</p><button class="btn ghost" style="margin-top:14px" data-act="signout">ใช้บัญชีอื่น</button>`;
+  else if (kind === 'signin') {
+    B.innerHTML = `<form id="loginForm" class="login" autocomplete="on">
+      <label class="f"><span>ชื่อผู้ใช้</span><input name="u" id="lgUser" required autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="80"></label>
+      <label class="f"><span>รหัสผ่าน</span><input name="p" type="password" required autocomplete="current-password" maxlength="128"></label>
+      <button class="btn pri" id="lgBtn">เข้าสู่ระบบ</button></form>
+      <p class="gate-msg">ใช้ชื่อผู้ใช้และรหัสผ่านที่ผู้ดูแลระบบของแผนกออกให้ ลืมรหัสผ่าน ติดต่อผู้ดูแลระบบ</p>${extra ? `<p class="err" role="alert">${esc(extra)}</p>` : ''}`;
+    setTimeout(() => { const i = $('lgUser'); if (i) i.focus(); }, 30);
+  }
+  else if (kind === 'denied') B.innerHTML = `<p class="gate-msg">บัญชี <b>${esc(shortId(extra))}</b> ยังไม่มีสิทธิ์เข้าใช้ระบบนี้ แจ้งผู้ดูแลระบบให้เพิ่มชื่อผู้ใช้นี้ในหน้าตั้งค่า แล้วลองเข้าใหม่</p><button class="btn ghost" style="margin-top:14px" data-act="signout">ใช้บัญชีอื่น</button>`;
   else if (kind === 'error') B.innerHTML = `<p class="gate-msg">เชื่อมต่อระบบไม่ได้ ${esc(extra || '')}<br>ตรวจอินเทอร์เน็ตแล้วโหลดหน้าใหม่</p><button class="btn pri" style="margin-top:14px" data-act="reload">โหลดใหม่</button>`;
 }
-async function signIn() {
-  const p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
-  try { await auth.signInWithPopup(p); }
+async function signIn(f) {
+  const u = String(f.get('u') || '').trim(), pw = String(f.get('p') || '');
+  if (!u || !pw) return;
+  const btn = $('lgBtn'); if (btn) { btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ…'; }
+  try { await auth.signInWithEmailAndPassword(toLogin(u), pw); }
   catch (e) {
-    if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) return auth.signInWithRedirect(p);
-    if (e.code !== 'auth/popup-closed-by-user') gate('signin', 'เข้าสู่ระบบไม่สำเร็จ (' + (e.code || e.message) + ')');
+    const M = { 'auth/invalid-credential': 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'auth/invalid-login-credentials': 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'auth/wrong-password': 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'auth/user-not-found': 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+      'auth/invalid-email': 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ -', 'auth/user-disabled': 'บัญชีนี้ถูกปิดการใช้งาน ติดต่อผู้ดูแลระบบ', 'auth/too-many-requests': 'ลองผิดหลายครั้ง ระบบพักการเข้าสู่ระบบชั่วคราว รอสักครู่แล้วลองใหม่',
+      'auth/network-request-failed': 'เชื่อมต่ออินเทอร์เน็ตไม่ได้', 'auth/operation-not-allowed': 'ระบบยังไม่เปิดการล็อกอินด้วยรหัสผ่าน (ผู้ดูแล: เปิด Email/Password ใน Firebase Authentication)' };
+    gate('signin', M[e.code] || 'เข้าสู่ระบบไม่สำเร็จ (' + (e.code || e.message) + ')');
+    const i = $('lgUser'); if (i) i.value = u;
   }
 }
 function enterApp() {
@@ -1317,10 +1393,9 @@ function listen() {
     setTimeout(listen, wait * 1000);   // เชื่อมต่อใหม่อัตโนมัติ
   }));
   unsub.push(fs.doc('config/access').onSnapshot(s => {
-    access = s.exists ? { members: s.data().members || [], admins: s.data().admins || [] } : { members: [], admins: [] };
-    const em = (user.email || '').toLowerCase(); isAdmin = access.admins.includes(em);
-    if (!isAdmin && !access.members.includes(em)) return gate('denied', user.email);
-    if (S.tab === 'set') renderSet();
+    access = readAccess(s.exists ? s.data() : null);
+    if (!applyRole()) return gate('denied', user.email);
+    renderAll();
   }, () => {}));
 }
 function startCloud() {
@@ -1330,25 +1405,27 @@ function startCloud() {
   try { fs.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch (e) {}   // เก็บคิวการเขียนไว้ในเครื่องเมื่อออฟไลน์
   col = fs.collection(COLL); locks = fs.collection(LOCKS);
   auth = firebase.auth();
-  auth.getRedirectResult().catch(e => gate('signin', 'เข้าสู่ระบบไม่สำเร็จ (' + (e.code || '') + ')'));
   gate('loading');
   auth.onAuthStateChanged(async u => {
     unsub.forEach(f => f()); unsub = []; docs = new Map();
     if (!u) { user = null; return gate('signin'); }
-    user = { email: (u.email || '').toLowerCase(), name: u.displayName || '', photo: u.photoURL || '' };
+    user = { email: (u.email || '').toLowerCase(), name: u.displayName || '', photo: '' };
     gate('loading');
     try {
       const s = await fs.doc('config/access').get();
-      access = s.exists ? { members: s.data().members || [], admins: s.data().admins || [] } : { members: [], admins: [] };
+      access = readAccess(s.exists ? s.data() : null);
     } catch (e) { if (e.code === 'permission-denied') return gate('denied', user.email); if (!offlineErr(e)) return gate('error', '(' + (e.code || e.message) + ')'); }
-    isAdmin = access.admins.includes(user.email);
-    if (!isAdmin && !access.members.includes(user.email)) return gate('denied', user.email);
+    if (!applyRole()) return gate('denied', user.email);
     setNet('wait'); enterApp(); listen();
   });
 }
 function startDemo() {
   $('demoBar').hidden = false; setNet('demo');
-  user = { email: 'demo@example.com', name: 'ผู้ทดลองใช้', photo: '' }; isAdmin = true; access = { members: [], admins: ['demo@example.com'] };
+  const asGuard = new URLSearchParams(location.search).get('role') === 'guard';
+  user = asGuard ? { email: 'guard01@' + USER_DOMAIN, name: '', photo: '' } : { email: 'admin@' + USER_DOMAIN, name: '', photo: '' };
+  access = readAccess({ admins: ['admin@' + USER_DOMAIN], members: ['somchai@' + USER_DOMAIN], guards: ['guard01@' + USER_DOMAIN, 'guard02@' + USER_DOMAIN],
+    names: { ['admin@' + USER_DOMAIN]: 'ผู้ดูแล (สาธิต)', ['somchai@' + USER_DOMAIN]: 'สมชาย ฝ่ายธุรการ', ['guard01@' + USER_DOMAIN]: 'รปภ. สมศักดิ์ กะเช้า', ['guard02@' + USER_DOMAIN]: 'รปภ. ประยุทธ กะดึก' } });
+  applyRole();
   try { const raw = localStorage.getItem(DEMO_KEY); if (raw) docs = new Map(JSON.parse(raw)); } catch (e) {}
   if (!docs.size) demoSeed();
   rebuild(); enterApp();
